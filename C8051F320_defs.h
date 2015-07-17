@@ -320,6 +320,140 @@ SBIT (SPIEN, SFR_SPI0CN, 0);           // SPI0 SPI enable
 #define INTERRUPT_VBUS_LEVEL       15  // VBUS level-triggered interrupt
 
 //-----------------------------------------------------------------------------
+// Clock Values
+//-----------------------------------------------------------------------------
+
+// OSCICN
+#define OSCICN_IOSCEN     0x80  		// Internal Oscillator Enable Bit
+#define OSCICN_IFRDY      0x40  		// Internal Oscillator Frequency Ready Flag
+#define OSCICN_SUSPEND    0x20  		// Force Suspend
+#define OSCICN_IFCN1      0x02  		// Internal Oscillator Frequency Control Bits : unset to divide by 4
+#define OSCICN_IFCN0      0x01  		// Internal Oscillator Frequency Control Bits : unset to divide by 2
+
+// CLKMUL
+#define CLKMUL_MULEN      0x80  		// Internal Oscillator Enable Bit
+#define CLKMUL_MULINIT    0x40  		// Internal Oscillator Frequency Ready Flag
+#define CLKMUL_MULRDY     0x20  		// Read-only Clock Multiplier Ready
+#define CLKMUL_MULSEL_INTERNAL      0x00  		//  Clock Multiplier Input Select
+#define CLKMUL_MULSEL_EXTERNAL      0x01  		
+#define CLKMUL_MULSEL_EXTERNALDIV2  0x02  		
+
+// CLKSEL
+#define CLKSEL_USBCLK_4XMUL            0x00  
+#define CLKSEL_USBCLK_INTERNALDIV2     0x10  
+#define CLKSEL_USBCLK_EXTERNAL         0x20  
+#define CLKSEL_USBCLK_EXTERNALDIV2     0x30  
+#define CLKSEL_USBCLK_EXTERNALDIV3     0x40  
+#define CLKSEL_USBCLK_EXTERNALDIV4     0x50  
+#define CLKSEL_CLKSL_INTERNAL	       0x00  
+#define CLKSEL_CLKSL_EXTERNAL	       0x01  
+#define CLKSEL_CLKSL_4XMULDIV2	       0x02  
+
+// RSTSRC
+#define RSTSRC_USBRSF            0x80 	// USB Reset Flag : Read 1=Last reset was a USB reset // Write 1=USB resets enabled 	 		
+#define RSTSRC_FERROR            0x40 	// FLASH Error Indicator : Readonly 1=Last reset was a flash error
+#define RSTSRC_C0RSEF            0x20 	// Comparator0 Reset Enable and Flag : Read 1=Last reset was a Comparator0 reset // Write 1=Comparator0 resets enabled	 		
+#define RSTSRC_SWRSF             0x10 	// Software Reset Force and Flag : Read 1=Last reset was a Software reset // Write 1=Force a RESET NOW	 		
+#define RSTSRC_WDTRSF            0x08 	// Watchdog Timer Reset Flag : ReadOnly 1=Source of last reset was a WDT timeout 		
+#define RSTSRC_MCDRSF            0x04 	// Missing Clock Detector Flag : Read 1=Last reset was a Missing Clock reset // Write 1=Missing Clock resets enabled 		 		
+#define RSTSRC_PORSF             0x02 	// Power-On / VDD Monitor Reset Flag : Read 1=Last reset was a Power reset // Write 1=Power resets enabled
+#define RSTSRC_PINRSF            0x01 	// HW Pin Reset Flag : Readonly 1=Source of last reset was /RST pin
+
+//-----------------------------------------------------------------------------
+// Usb Values
+//-----------------------------------------------------------------------------
+
+// USB0XCN
+#define USB0XCN_PREN       0x80  		// PullUp Resistor Enable : if 0, device is detatched from USB network
+#define USB0XCN_PHYEN      0x40  		// Physical Layer Enable : if 0, tranciever is disabled (suspended state)
+#define USB0XCN_SPEED      0x20  		// Speed : 0=LowSpeed 1=FullSpeed
+#define USB0XCN_PHYTST1    0x10  		// Physical Layer Test 1 & 2 : 00=Normal 01=DifferentialTest1 10=DifferentialTest0 11=SingleEnded0
+#define USB0XCN_PHYTST0    0x08  		
+#define USB0XCN_DFREC      0x04  		// Differential Reciever
+#define USB0XCN_DP         0x02  		// D+ signal status
+#define USB0XCN_DN         0x01  		// D- signal status
+
+// USB0ADR
+#define  USB0ADR_BASE     0x00
+// Interrupts Registers
+#define  USB0ADR_IN1INT   USB0ADR_BASE + 0x02	// Endpoint0 and Endpoints1-3 IN Interrupt Flags
+#define  USB0ADR_OUT1INT  USB0ADR_BASE + 0x04   // Endpoints1-3 OUT Interrupt Flags 
+#define  USB0ADR_CMINT    USB0ADR_BASE + 0x06   // Common USB Interrupt Flags 
+#define  USB0ADR_IN1IE    USB0ADR_BASE + 0x07   // Endpoint0 and Endpoints1-3 IN Interrupt Enables 
+#define  USB0ADR_OUT1IE   USB0ADR_BASE + 0x09   // Endpoints1-3 OUT Interrupt Enables 
+#define  USB0ADR_CMIE     USB0ADR_BASE + 0x0B   // Common USB Interrupt Enables
+// Common Registers
+#define  USB0ADR_FADDR    USB0ADR_BASE          // Function Address 
+#define  USB0ADR_POWER    USB0ADR_BASE + 0x01   // Power Management 
+#define  USB0ADR_FRAMEL   USB0ADR_BASE + 0x0C   // Frame Number Low Byte
+#define  USB0ADR_FRAMEH   USB0ADR_BASE + 0x0D   // Frame Number High Byte 
+#define  USB0ADR_INDEX    USB0ADR_BASE + 0x0E   // Endpoint Index Selection 
+#define  USB0ADR_CLKREC   USB0ADR_BASE + 0x0F   // Clock Recovery Control
+#define  USB0ADR_FIFO_EP0 USB0ADR_BASE + 0x20   // Endpoints 0-3 FIFOs 
+#define  USB0ADR_FIFO_EP1 USB0ADR_BASE + 0x21   //
+#define  USB0ADR_FIFO_EP2 USB0ADR_BASE + 0x22   //
+#define  USB0ADR_FIFO_EP3 USB0ADR_BASE + 0x23   // 
+// Indexed Registers (meaning changes according to USB0ADR_INDEX)
+#define  USB0ADR_E0CSR    USB0ADR_BASE + 0x11   // Endpoint0 Control / Status 
+#define  USB0ADR_EINCSRL  USB0ADR_BASE + 0x11   // Endpoint IN Control / Status Low Byte 
+#define  USB0ADR_EINCSRH  USB0ADR_BASE + 0x12   // Endpoint IN Control / Status High Byte 
+#define  USB0ADR_EOUTCSRL USB0ADR_BASE + 0x14   // Endpoint OUT Control / Status Low Byte 
+#define  USB0ADR_EOUTCSRH USB0ADR_BASE + 0x15   // Endpoint OUT Control / Status High Byte 
+#define  USB0ADR_E0CNT    USB0ADR_BASE + 0x16   // Number of Received Bytes in Endpoint0 FIFO 
+#define  USB0ADR_EOUTCNTL USB0ADR_BASE + 0x16   // Endpoint OUT Packet Count Low Byte
+#define  USB0ADR_EOUTCNTH USB0ADR_BASE + 0x17   // Endpoint OUT Packet Count High Byte 
+
+#define  USB0ADR_BUSY     0x80            // Busy Flag : Write 0=NoEffect 1=ReadInitiated // Read 0=DataIsValid 1=DataIsInvalid
+#define  USB0ADR_AUTORD   0x40            // Autoread flag : 0=BUSY must be written manually  1=Next read initiated when software read USB0DAT
+
+// Write Procedure:
+// 1.  Poll until (USB0ADR & USB0ADR_BUSY) == 0.
+// 2.  Load the target USB0 register address into the USBADDR bits in register USB0ADR.
+// 3.  Write data to USB0DAT.
+// 4.  Repeat (Step 2 may be skipped when writing to the same USB0 register).
+
+// Read Procedure:
+// 1.  Poll until (USB0ADR & USB0ADR_BUSY) == 0.
+// 2.  Load the target USB0 register address into the USBADDR bits in register USB0ADR.
+// 3.  Write ‘1’ to the BUSY bit in register USB0ADR (steps 2 and 3 can be performed in the same write).
+// 4.  Poll until (USB0ADR & USB0ADR_BUSY) == 0.
+// 5.  Read data from USB0DAT.
+// 6.  Repeat from Step 2 (Step 2 may be skipped when reading the same USB0 register; Step 3 may be skipped when the AUTORD bit (USB0ADR.6) is logic 1)
+
+// USB0ADR_POWER
+#define  USB0DAT_POWER_ISOUD        0x80 // ISO Update for Isosynchronous endpoints
+#define  USB0DAT_POWER_UNUSED1      0x40
+#define  USB0DAT_POWER_UNUSED2      0x20
+#define  USB0DAT_POWER_USBINH	    0x10 // USB0 Inhibit : clear this bit when init is ok. HW set this bit after a reset
+#define  USB0DAT_POWER_USBRST       0x08 // Reset detect : forces USB reset
+#define  USB0DAT_POWER_RESUME       0x04 // Force Resume : forces USB resuming form suspend mode
+#define  USB0DAT_POWER_SUSMD        0x02 // Readonly Bit is set when in Suspend mode
+#define  USB0DAT_POWER_SUSEN        0x01 // Suspend Detection enable : if set, USB0 will enter suspend mode when requested (by the host ?)
+
+// USB0ADR_CLKREC
+#define  USB0DAT_CLKREC_CRE          0x80 // Clock recovery enable
+#define  USB0DAT_CLKREC_CRSSEN       0x40 // Clock recovery single step (not required or recommended)
+#define  USB0DAT_CLKREC_CRLOW        0x20 // Low speed clock recovery mode
+#define  USB0DAT_CLKREC_MUSTWRITE    0x09 // When writing, always write this too
+
+// USB0ADR_IN1IE
+#define  USB0DAT_IN1IE_EP3         0x08
+#define  USB0DAT_IN1IE_EP2         0x04
+#define  USB0DAT_IN1IE_EP1         0x02
+#define  USB0DAT_IN1IE_EP0         0x01
+
+// USB0ADR_OUT1IE
+#define  USB0DAT_OUT1IE_EP3        0x08
+#define  USB0DAT_OUT1IE_EP2        0x04
+#define  USB0DAT_OUT1IE_EP1        0x02
+
+// USB0ADR_CMIE
+#define  USB0DAT_CMIE_SOFE         0x08 // Start of frame Interrupt enabled
+#define  USB0DAT_CMIE_RSTINTE      0x04 // Reset Interrupt enabled
+#define  USB0DAT_CMIE_RSUINTE      0x02 // Resume Interrupt enabled
+#define  USB0DAT_CMIE_SUSINTE      0x01 // Suspend Interrupt enabled
+
+//-----------------------------------------------------------------------------
 // Header File PreProcessor Directive
 //-----------------------------------------------------------------------------
 
