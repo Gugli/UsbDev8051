@@ -75,9 +75,8 @@ void main (void)
 	U16 I;
 	SEventQueue* EventsQueue;
 
-
-    PCA0MD &= ~0x40;                    // Disable Watchdog timer
-   	OSCICN = OSCICN_IOSCEN | OSCICN_IFCN1 | OSCICN_IFCN0;          // Configure internal oscillator
+    PCA0MD &= ~0x40;                    			// Disable Watchdog timer 
+ 	OSCICN = OSCICN_IOSCEN | OSCICN_IFCN1 | OSCICN_IFCN0;          // Configure internal oscillator
 
   	CLKMUL = CLKMUL_MULSEL_INTERNAL;   
    	CLKMUL = CLKMUL_MULSEL_INTERNAL | CLKMUL_MULEN;                       // Enable clock multiplier
@@ -86,35 +85,35 @@ void main (void)
 	for(I = 0;I < 500;I++);             // Delay for clock multiplier to begin
    	while(!(CLKMUL & CLKMUL_MULRDY));   // Wait for multiplier to lock
 
-  	CLKSEL  = CLKSEL_CLKSL_INTERNAL | CLKSEL_USBCLK_4XMUL;              // Select system and USB clocks
-
-	RSTSRC |= RSTSRC_USBRSF; // Enables Usb as a reset source. Will reset immediately if USB is not connected
+  	CLKSEL = CLKSEL_CLKSL_INTERNAL | CLKSEL_USBCLK_4XMUL;            // Select system clock and USB clock
 
 	while (USB0ADR & USB0ADR_BUSY);
 	USB0ADR = USB0ADR_POWER;
 	USB0DAT = USB0DAT_POWER_USBRST; // Request Reset
 	while (USB0ADR & USB0ADR_BUSY);
 	USB0ADR = USB0ADR_IN1IE;
-	USB0DAT |= USB0DAT_IN1IE_EP0 | USB0DAT_IN1IE_EP1 | USB0DAT_IN1IE_EP2; // Enable Endpoint 0-2 in interrupts
+	USB0DAT = USB0DAT_IN1IE_EP0 | USB0DAT_IN1IE_EP1 | USB0DAT_IN1IE_EP2; // Enable Endpoint 0-2 in interrupts
 	while (USB0ADR & USB0ADR_BUSY);
 	USB0ADR = USB0ADR_OUT1IE;
-	USB0DAT |= USB0DAT_OUT1IE_EP1 | USB0DAT_OUT1IE_EP2; // Enable Endpoint 1-2 out interrupts
+	USB0DAT = USB0DAT_OUT1IE_EP1 | USB0DAT_OUT1IE_EP2; // Enable Endpoint 1-2 out interrupts
 	while (USB0ADR & USB0ADR_BUSY);
 	USB0ADR = USB0ADR_CMIE;
-	USB0DAT |= USB0DAT_CMIE_RSTINTE | USB0DAT_CMIE_RSUINTE | USB0DAT_CMIE_SUSINTE; // Enable Reset, Resume, and Suspend interrupts
+	USB0DAT = USB0DAT_CMIE_RSTINTE | USB0DAT_CMIE_RSUINTE | USB0DAT_CMIE_SUSINTE; // Enable Reset, Resume, and Suspend interrupts
 
 	USB0XCN = USB0XCN_PREN | USB0XCN_PHYEN | USB0XCN_SPEED; // Activate Usb transciever at Full speed
 
 	while (USB0ADR & USB0ADR_BUSY);
 	USB0ADR = USB0ADR_CLKREC;
-	USB0DAT |= USB0DAT_CLKREC_CRE; // Enable clock recovery
+	USB0DAT = USB0DAT_CLKREC_CRE; // Enable clock recovery
 
 	EIE1 |= 0x02;// Enable USB0 Interrupts
-   	EA = 1; // Enable global interrupts
 
 	while (USB0ADR & USB0ADR_BUSY);
 	USB0ADR = USB0ADR_POWER;
 	USB0DAT = (USB0DAT & ~USB0DAT_POWER_USBINH) | USB0DAT_POWER_SUSEN; // Activate transciever and enable suspend detection
+
+	//RSTSRC |= RSTSRC_USBRSF; // Enables Usb as a reset source. Will reset immediately if USB is not connected
+   	EA = 1; // global interrupts enable 
 
 	while (1)
 	{
