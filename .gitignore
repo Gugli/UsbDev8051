@@ -16,3 +16,5 @@ Main.sym
 tmp.out
 UsbDev8051.sdf
 UsbDev8051.v12.suo
+Main.OBJ
+FootSwitch.M51

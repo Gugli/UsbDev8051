@@ -436,6 +436,13 @@ SBIT (SPIEN, SFR_SPI0CN, 0);           // SPI0 SPI enable
 #define  USB0DAT_CLKREC_CRLOW        0x20 // Low speed clock recovery mode
 #define  USB0DAT_CLKREC_MUSTWRITE    0x09 // When writing, always write this too
 
+
+// USB0ADR_CMINT
+#define  USB0ADR_CMINT_SOF          0x08
+#define  USB0ADR_CMINT_RSTINT       0x04
+#define  USB0ADR_CMINT_RSUINT       0x02
+#define  USB0ADR_CMINT_SUSINT       0x01
+
 // USB0ADR_IN1IE
 #define  USB0DAT_IN1IE_EP3         0x08
 #define  USB0DAT_IN1IE_EP2         0x04
