@@ -394,7 +394,7 @@ SBIT (SPIEN, SFR_SPI0CN, 0);           // SPI0 SPI enable
 #define  USB0ADR_FIFO_EP2 USB0ADR_BASE + 0x22   //
 #define  USB0ADR_FIFO_EP3 USB0ADR_BASE + 0x23   // 
 // Indexed Registers (meaning changes according to USB0ADR_INDEX)
-#define  USB0ADR_E0CSR    USB0ADR_BASE + 0x11   // Endpoint0 Control / Status 
+#define  USB0ADR_E0CSR    USB0ADR_BASE + 0x11   // Endpoint0 Control / Status (yes, it's endpoint 0, but you need the index)
 #define  USB0ADR_EINCSRL  USB0ADR_BASE + 0x11   // Endpoint IN Control / Status Low Byte 
 #define  USB0ADR_EINCSRH  USB0ADR_BASE + 0x12   // Endpoint IN Control / Status High Byte 
 #define  USB0ADR_EOUTCSRL USB0ADR_BASE + 0x14   // Endpoint OUT Control / Status Low Byte 
@@ -459,6 +459,17 @@ SBIT (SPIEN, SFR_SPI0CN, 0);           // SPI0 SPI enable
 #define  USB0DAT_CMIE_RSTINTE      0x04 // Reset Interrupt enabled
 #define  USB0DAT_CMIE_RSUINTE      0x02 // Resume Interrupt enabled
 #define  USB0DAT_CMIE_SUSINTE      0x01 // Suspend Interrupt enabled
+
+
+// USB0ADR_E0CSR
+#define  USB0ADR_E0CSR_SSUEND       0x80
+#define  USB0ADR_E0CSR_SOPRDY       0x40
+#define  USB0ADR_E0CSR_SDSTL        0x20
+#define  USB0ADR_E0CSR_SUEND        0x10
+#define  USB0ADR_E0CSR_DATAEND      0x08
+#define  USB0ADR_E0CSR_STSTL        0x04
+#define  USB0ADR_E0CSR_INPRDY       0x02
+#define  USB0ADR_E0CSR_OPRDY        0x01
 
 //-----------------------------------------------------------------------------
 // Header File PreProcessor Directive
