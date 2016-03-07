@@ -156,7 +156,7 @@ SFR (VDM0CN, 0xFF);                    // Vdd monitor control
 //-----------------------------------------------------------------------------
 // 16-bit Register Definitions (might not be supported by all compilers)
 //-----------------------------------------------------------------------------
-
+//*
 SFR16 (DP, 0x82);
 SFR16 (TMR3RL, 0x92);
 SFR16 (TMR3, 0x94);
@@ -171,7 +171,7 @@ SFR16 (PCA0CP3, 0xED);
 SFR16 (PCA0, 0xF9);
 SFR16 (PCA0CP0, 0xFB);
 SFR16 (PCA0CP4, 0xFD);
-
+//*/
 //-----------------------------------------------------------------------------
 // Address Definitions for Bit-addressable Registers
 //-----------------------------------------------------------------------------
@@ -197,7 +197,7 @@ SFR16 (PCA0CP4, 0xFD);
 //-----------------------------------------------------------------------------
 // Bit Definitions
 //-----------------------------------------------------------------------------
-
+/*
 // TCON 0x88
 SBIT (TF1, SFR_TCON, 7);               // Timer1 overflow flag
 SBIT (TR1, SFR_TCON, 6);               // Timer1 on/off control
@@ -297,6 +297,7 @@ SBIT (NSSMD1, SFR_SPI0CN, 3);          // SPI0 slave select mode 1
 SBIT (NSSMD0, SFR_SPI0CN, 2);          // SPI0 slave select mode 0
 SBIT (TXBMT, SFR_SPI0CN, 1);           // SPI0 transmit buffer empty
 SBIT (SPIEN, SFR_SPI0CN, 0);           // SPI0 SPI enable
+*/
 
 //-----------------------------------------------------------------------------
 // Interrupt Priorities

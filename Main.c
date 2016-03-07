@@ -19,6 +19,13 @@ typedef enum
 /////////////////////////////////
 // Globals
 
+#define MUsb_HighSpeed MEnabled
+
+#if MIsEnabled(MUsb_HighSpeed) 
+#define MUsb_Endpoint0_PacketSize 0x40
+#else
+#define MUsb_Endpoint0_PacketSize 0x08
+#endif
 
 SEG_CODE SUsbDescriptor_Device UsbDescriptor =
 {
@@ -43,7 +50,7 @@ SEG_CODE SUsbDescriptor_Device UsbDescriptor =
 const unsigned char String1Desc [] = USB_STRING('G', 'u', 'g', 'l', 'i');
 const unsigned char String2Desc [] = USB_STRING('F', 'o', 'o', 't', 's', 'w', 'i', 't', 'c', 'h');
 const unsigned char String3Desc [] = USB_STRING('S', 'N', '-', '4', '2');
-/*/
+//*/
 const unsigned char String1Desc [] = {12, 0x03, 'G', 0, 'u', 0, 'g', 0, 'l', 0, 'i', 0};
 const unsigned char String2Desc [] = {22, 0x03, 'F', 0, 'o', 0, 'o', 0, 't', 0, 's', 0, 'w', 0, 'i', 0, 't', 0, 'c', 0, 'h', 0};
 const unsigned char String3Desc [] = {12, 0x03, 'S', 0, 'N', 0, '-', 0, '4', 0, '2', 0};
@@ -75,8 +82,6 @@ typedef struct {
 	EUsbEndpointState EndpointStates[3];
 
 	U8 Usb_FADDR;
-	U8 Usb_UseLowSpeed;
-	U8 Usb_Endpoint0_PacketSize;
                
 	U8* DataToSend_Ptr;   
 	U16 DataToSend_Size; 
@@ -94,8 +99,6 @@ void MC_SetDefault(SMainContext* _MC) {
 	_MC->EndpointStates[2] = EUsbEndpointState_Idle;
 
 	_MC->Usb_FADDR = 0x00;
-	_MC->Usb_UseLowSpeed = False;
-	_MC->Usb_Endpoint0_PacketSize = 0x00;
 
 	_MC->DataToSend_Ptr = 0x00;
 	_MC->DataToSend_Size = 0x00;
@@ -126,11 +129,13 @@ INTERRUPT(Usb_ISR, INTERRUPT_USB0)
 	SUsbPacket_Setup SetupPacket;
 	U16 RequestedLength;
 	U8 SendOrRecieveIsFinished;
+
+	volatile U8 bob = 0;
 	
-	CurrentEvent.Common = USB_ReadRegister(USB0ADR_CMINT);
-	CurrentEvent.In = USB_ReadRegister(USB0ADR_IN1INT);
-	CurrentEvent.Out = USB_ReadRegister(USB0ADR_OUT1INT);
-	RequestedLength = 0;
+	CurrentEvent.Common  = USB_ReadRegister(USB0ADR_CMINT);
+	CurrentEvent.In      = USB_ReadRegister(USB0ADR_IN1INT);
+	CurrentEvent.Out     = USB_ReadRegister(USB0ADR_OUT1INT);
+	RequestedLength      = 0;
 
 	if (CurrentEvent.Common & USB0ADR_CMINT_RSUINT)          
     {
@@ -196,12 +201,14 @@ INTERRUPT(Usb_ISR, INTERRUPT_USB0)
 			      // Intercept HID class-specific requests
 			      if( (SetupPacket.RequestType & 0x7F) == EUsbClass_ClassDescriptorType_HID ) {
 			         switch (SetupPacket.Request) {
-						case EUsbPacket_Setup_Request_GetReport:              break;
-						case EUsbPacket_Setup_Request_SetReport:              break;
-						case EUsbPacket_Setup_Request_GetIdle:			      break;
-						case EUsbPacket_Setup_Request_SetIdle:                break;
-						case EUsbPacket_Setup_Request_GetProtocol:            break;
-						case EUsbPacket_Setup_Request_SetProtocol:            break;
+						case EUsbPacket_Setup_Request_GetReport:              // bob++; break;
+						case EUsbPacket_Setup_Request_SetReport:              // bob++; break;
+						case EUsbPacket_Setup_Request_GetIdle:			      // bob++; break;
+						case EUsbPacket_Setup_Request_SetIdle:                // bob++; break;
+						case EUsbPacket_Setup_Request_GetProtocol:            // bob++; break;
+						case EUsbPacket_Setup_Request_SetProtocol:            
+						    bob++; 
+							break;
 						default:																	
 							USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SDSTL);
 							MC.EndpointStates[0] = EUsbEndpointState_Stall;
@@ -211,15 +218,17 @@ INTERRUPT(Usb_ISR, INTERRUPT_USB0)
 
 			         switch (SetupPacket.Request)      
 			         {   
-						case EUsbPacket_Setup_Request_GetStatus:              break;
-						case EUsbPacket_Setup_Request_CleatFeature:           break;
-						case EUsbPacket_Setup_Request_SetFeature:			  break;
-						case EUsbPacket_Setup_Request_SetAddress:             break;
-						case EUsbPacket_Setup_Request_GetDescriptor:          break;
-						case EUsbPacket_Setup_Request_GetConfig:              break;
-						case EUsbPacket_Setup_Request_SetConfig:              break;
-						case EUsbPacket_Setup_Request_GetInterface:           break;
-						case EUsbPacket_Setup_Request_SetInterface:           break;
+						case EUsbPacket_Setup_Request_GetStatus:              // bob++; break;
+						case EUsbPacket_Setup_Request_CleatFeature:           // bob++; break;
+						case EUsbPacket_Setup_Request_SetFeature:			  // bob++; break;
+						case EUsbPacket_Setup_Request_SetAddress:             // bob++; break;
+						case EUsbPacket_Setup_Request_GetDescriptor:          // bob++; break;
+						case EUsbPacket_Setup_Request_GetConfig:              // bob++; break;
+						case EUsbPacket_Setup_Request_SetConfig:              // bob++; break;
+						case EUsbPacket_Setup_Request_GetInterface:           // bob++; break;
+						case EUsbPacket_Setup_Request_SetInterface:  
+						         bob++; 
+								 break;
 						default:						
 							USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SDSTL);
 							MC.EndpointStates[0] = EUsbEndpointState_Stall;
@@ -244,11 +253,11 @@ INTERRUPT(Usb_ISR, INTERRUPT_USB0)
 					 SendOrRecieveIsFinished = False;
 
 		            NewControlRegister = USB0ADR_E0CSR_INPRDY;
-		            if ( MC.Usb_Endpoint0_PacketSize <= MC.DataToSend_Size - MC.DataToSend_CurrentOffset )
+		            if ( MUsb_Endpoint0_PacketSize <= MC.DataToSend_Size - MC.DataToSend_CurrentOffset )
 		            {
 		               // Break Data into multiple packets if larger than Max Packet
-		               USB_WriteEndpointFifo(USB0ADR_FIFO_EP0, MC.DataToSend_Ptr + MC.DataToSend_CurrentOffset, MC.Usb_Endpoint0_PacketSize ); 
-						MC.DataToSend_CurrentOffset += MC.Usb_Endpoint0_PacketSize;              
+		               USB_WriteEndpointFifo(USB0ADR_FIFO_EP0, MC.DataToSend_Ptr + MC.DataToSend_CurrentOffset, MUsb_Endpoint0_PacketSize ); 
+						MC.DataToSend_CurrentOffset += MUsb_Endpoint0_PacketSize;              
 		            }
 		            else
 		            {
@@ -280,10 +289,10 @@ INTERRUPT(Usb_ISR, INTERRUPT_USB0)
 		      {
 				 SendOrRecieveIsFinished = False;
 		         NewControlRegister = USB0ADR_E0CSR_SOPRDY;
-		         if (MC.Usb_Endpoint0_PacketSize <= MC.DataToRecieve_Size - MC.DataToRecieve_CurrentOffset )
+		         if (MUsb_Endpoint0_PacketSize <= MC.DataToRecieve_Size - MC.DataToRecieve_CurrentOffset )
 		         {
-		            USB_ReadEndpointFifo(USB0ADR_FIFO_EP0, MC.DataToRecieve_Ptr + MC.DataToRecieve_CurrentOffset, MC.Usb_Endpoint0_PacketSize );
-					MC.DataToRecieve_CurrentOffset += MC.Usb_Endpoint0_PacketSize;
+		            USB_ReadEndpointFifo(USB0ADR_FIFO_EP0, MC.DataToRecieve_Ptr + MC.DataToRecieve_CurrentOffset, MUsb_Endpoint0_PacketSize );
+					MC.DataToRecieve_CurrentOffset += MUsb_Endpoint0_PacketSize;
 		         }
 		         else
 		         {
@@ -319,77 +328,61 @@ INTERRUPT(Usb_ISR, INTERRUPT_USB0)
 /////////////////////////////////
 // MAIN
 
-SBIT (LED1, SFR_P2, 2);                // LED='1' means ON
 
 void main (void)
 {
-	U16 I, FrameCyclicCounterHigh, FrameCyclicCounterLow;
+	volatile U16 I;
+	U16 FrameCyclicCounterHigh, FrameCyclicCounterLow;
 
-	MC_SetDefault(&MC);
+    // Disable Watchdog timer
+    PCA0MD &= ~0x40;                    			 
 
-    PCA0MD &= ~0x40;                    			// Disable Watchdog timer 
-
-	if(MC.Usb_UseLowSpeed) 
-	{
-	   MC.Usb_Endpoint0_PacketSize = 0x08;
-	   OSCICN = OSCICN_IOSCEN | OSCICN_IFCN1 | OSCICN_IFCN0;
-	   CLKSEL  = CLKSEL_CLKSL_EXTERNAL | CLKSEL_USBCLK_EXTERNALDIV4;     
-	} else {
-	    MC.Usb_Endpoint0_PacketSize = 0x40;
+    // Setup clock
+	#if MIsEnabled(MUsb_HighSpeed) 
 	 	OSCICN = OSCICN_IOSCEN | OSCICN_IFCN1 | OSCICN_IFCN0;          // Configure internal oscillator
-
-	  	CLKMUL = CLKMUL_MULSEL_INTERNAL;   
-	   	CLKMUL = CLKMUL_MULSEL_INTERNAL | CLKMUL_MULEN;                       // Enable clock multiplier
+	   	CLKMUL = CLKMUL_MULSEL_INTERNAL | CLKMUL_MULEN | CLKMUL_MULINIT;        // Enable clock multiplier
 		for(I = 0;I < 500;I++);            									 // Delay for clock multiplier to begin
-	   	CLKMUL = CLKMUL_MULSEL_INTERNAL | CLKMUL_MULEN | CLKMUL_MULINIT;      // Initialize the clock multiplier
 	   	while(!(CLKMUL & CLKMUL_MULRDY));   								// Wait for multiplier to lock
 
-	  	CLKSEL = CLKSEL_CLKSL_INTERNAL | CLKSEL_USBCLK_4XMUL;            // Select system clock and USB clock
-	}
+	  	CLKSEL = CLKSEL_CLKSL_INTERNAL |CLKSEL_USBCLK_4XMUL;            // Select system clock and USB clock
+    #else
+	   OSCICN = OSCICN_IOSCEN | OSCICN_IFCN1 | OSCICN_IFCN0;
+	   	CLKMUL = CLKMUL_MULSEL_INTERNAL;        // Enable clock multiplier
+	   CLKSEL  = CLKSEL_CLKSL_EXTERNAL | CLKSEL_USBCLK_EXTERNALDIV4;  
+	#endif
 
-	while (USB0ADR & USB0ADR_BUSY);
-	USB0ADR = USB0ADR_POWER;
-	USB0DAT = USB0DAT_POWER_USBRST; // Request Reset
-	while (USB0ADR & USB0ADR_BUSY);
-	USB0ADR = USB0ADR_IN1IE;
-	USB0DAT = USB0DAT_IN1IE_EP0 | USB0DAT_IN1IE_EP1 | USB0DAT_IN1IE_EP2; // Enable Endpoint 0-2 in interrupts
-	while (USB0ADR & USB0ADR_BUSY);
-	USB0ADR = USB0ADR_OUT1IE;
-	USB0DAT = USB0DAT_OUT1IE_EP1 | USB0DAT_OUT1IE_EP2; // Enable Endpoint 1-2 out interrupts
-	while (USB0ADR & USB0ADR_BUSY);
-	USB0ADR = USB0ADR_CMIE;
-	USB0DAT = USB0DAT_CMIE_RSTINTE | USB0DAT_CMIE_RSUINTE | USB0DAT_CMIE_SUSINTE; // Enable Reset, Resume, and Suspend interrupts
+    // Setup USB
+	USB_WriteRegister(USB0ADR_POWER, USB0DAT_POWER_USBRST); // Request Reset
+    USB_WriteRegister(USB0ADR_IN1IE, USB0DAT_IN1IE_EP0 | USB0DAT_IN1IE_EP1 | USB0DAT_IN1IE_EP2); // Enable Endpoint 0-2 in interrupts
+    USB_WriteRegister(USB0ADR_OUT1IE, USB0DAT_OUT1IE_EP1 | USB0DAT_OUT1IE_EP2); // Enable Endpoint 1-2 out interrupts
+	USB_WriteRegister(USB0ADR_CMIE, USB0DAT_CMIE_RSTINTE | USB0DAT_CMIE_RSUINTE | USB0DAT_CMIE_SUSINTE);  // Enable Reset, Resume, and Suspend interrupts
 
 	USB0XCN = USB0XCN_PREN | USB0XCN_PHYEN | USB0XCN_SPEED; // Activate Usb transciever at Full speed
+	USB_WriteRegister(USB0ADR_CLKREC, USB0DAT_CLKREC_CRE | USB0DAT_CLKREC_MUSTWRITE); // Enable clock recovery
 
-	while (USB0ADR & USB0ADR_BUSY);
-	USB0ADR = USB0ADR_CLKREC;
-	USB0DAT = USB0DAT_CLKREC_CRE | USB0DAT_CLKREC_MUSTWRITE; // Enable clock recovery
+	EIE1 |= 0x02; // Enable USB0 Interrupts
 
-	EIE1 |= 0x02;// Enable USB0 Interrupts
-
-	while (USB0ADR & USB0ADR_BUSY);
-	USB0ADR = USB0ADR_POWER;
-	USB0DAT = (USB0DAT & ~USB0DAT_POWER_USBINH) | USB0DAT_POWER_SUSEN; // Activate transciever and enable suspend detection
-
-   	EA = 1; // global interrupts enable 
-
+	USB_WriteRegister(USB0ADR_POWER, USB0DAT_POWER_SUSEN); // Activate transciever and enable suspend detection
+	
 	XBR0 = 0x00;                        // No digital peripherals selected
 	XBR1 = 0x40;                        // Enable crossbar and weak pull-ups
 	P2MDOUT |= 0x04;                    // Enable LED as a push-pull output
 
+	MC_SetDefault(&MC);
 	FrameCyclicCounterLow = 0;
 	FrameCyclicCounterHigh = 0;
+
+   	IE = (IE | 0x80); // global interrupts enable 
 	while (1)
 	{
-   		//EA = 0; // Disable interrupts
+   		// IE = (IE & (~0x80)) ; // Disable interrupts
 		// if (properly set up)
 		//RSTSRC |= RSTSRC_USBRSF; // Enables Usb as a reset source. Will reset immediately if USB is not connected
 		
-   		//EA = 1; // Enable interrupts
+   		// IE |= 0x80 ; // global interrupts enable 
 
 		// blink leds, to show when running
-   		LED1 = (FrameCyclicCounterHigh % 0x0008 < 0x0004) ? 0 : 1;
+		P2 = (FrameCyclicCounterHigh % 0x0008 < 0x0004) ? 0x00 : 0x04;
 		FrameCyclicCounterLow++;
 		if(!FrameCyclicCounterLow) FrameCyclicCounterHigh++;
 	}

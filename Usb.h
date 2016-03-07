@@ -214,7 +214,7 @@ typedef enum
 //////////////////////////////////////////////////
 // Functions & macros
 
-#define USB_GetWordValue(_UsbWord) ( _UsbWord.LeastSignificantByte + 0xFF * _UsbWord.MostSignificantByte)
+#define USB_GetWordValue(_UsbWord) ( _UsbWord.LeastSignificantByte + 0x0100 * _UsbWord.MostSignificantByte)
 
 U8 USB_ReadRegister(U8 _UsbAddress) {
 	while (USB0ADR & USB0ADR_BUSY);
@@ -225,7 +225,7 @@ U8 USB_ReadRegister(U8 _UsbAddress) {
 
 void USB_WriteRegister(U8 _UsbAddress, U8 _Value) {
 	while (USB0ADR & USB0ADR_BUSY);
-	USB0ADR = (USB0ADR_BUSY | _UsbAddress);
+	USB0ADR = _UsbAddress;
     USB0DAT = _Value;
 }
 
