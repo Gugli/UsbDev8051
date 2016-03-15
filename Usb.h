@@ -2,6 +2,7 @@
 #define USB_H
 
 #include "compiler_defs.h"
+#include "C8051F320_defs.h"
 
 typedef struct
 {
@@ -26,6 +27,7 @@ typedef enum
 {
 	EUsbDescriptorType_Device = 0x01,
 	EUsbDescriptorType_Configuration = 0x02,
+	EUsbDescriptorType_String = 0x03,
 	EUsbDescriptorType_Interface = 0x04,
 	EUsbDescriptorType_Endpoint = 0x05
 } EUsbDescriptorType;
@@ -138,10 +140,31 @@ typedef struct
 
 typedef enum
 {
+	// Masks
+	EUsbPacket_Setup_RequestType_DirMask         = 0x80,
+	EUsbPacket_Setup_RequestType_TypeMask        = 0x60,
+	EUsbPacket_Setup_RequestType_RecipientMask   = 0x1F,
+
+	EUsbPacket_Setup_RequestType_Dir_Out		 = 0x00,
+	EUsbPacket_Setup_RequestType_Dir_In  		 = 0x80,
+
+	EUsbPacket_Setup_RequestType_Type_Standard   = 0x00,
+	EUsbPacket_Setup_RequestType_Type_Class 	 = 0x20,
+	EUsbPacket_Setup_RequestType_Type_Product 	 = 0x40,
+
+	EUsbPacket_Setup_RequestType_Recipient_Device    = 0x00,
+	EUsbPacket_Setup_RequestType_Recipient_Interface = 0x01,
+	EUsbPacket_Setup_RequestType_Recipient_Endpoint	 = 0x02,
+	EUsbPacket_Setup_RequestType_Recipient_Element 	 = 0x03,
+
+} EUsbPacket_Setup_RequestType;
+
+typedef enum
+{
 	// Standard requests
 	EUsbPacket_Setup_Request_GetStatus     = 0x00,
-	EUsbPacket_Setup_Request_CleatFeature  = 0x01,
-	EUsbPacket_Setup_Request_SetFeature    = 0x02,
+	EUsbPacket_Setup_Request_ClearFeature  = 0x01,
+	EUsbPacket_Setup_Request_SetFeature    = 0x03, // or 0x02 ???
 	EUsbPacket_Setup_Request_SetAddress    = 0x05,
 	EUsbPacket_Setup_Request_GetDescriptor = 0x06,
 	EUsbPacket_Setup_Request_SetDescriptor = 0x07,
@@ -216,50 +239,22 @@ typedef enum
 
 #define USB_GetWordValue(_UsbWord) ( _UsbWord.LeastSignificantByte + 0x0100 * _UsbWord.MostSignificantByte)
 
-U8 USB_ReadRegister(U8 _UsbAddress) {
-	while (USB0ADR & USB0ADR_BUSY);
-	USB0ADR = (USB0ADR_BUSY | _UsbAddress);
-    while (USB0ADR & USB0ADR_BUSY); 
-	return USB0DAT;
-}
+#define USB_ReadRegister( ___Result, __UsbAddress) do { \
+	while (USB0ADR & USB0ADR_BUSY);                     \
+	USB0ADR = (USB0ADR_BUSY | __UsbAddress);            \
+    while (USB0ADR & USB0ADR_BUSY);                     \
+	___Result = USB0DAT;                                \
+} while(0)                     	 
 
-void USB_WriteRegister(U8 _UsbAddress, U8 _Value) {
-	while (USB0ADR & USB0ADR_BUSY);
-	USB0ADR = _UsbAddress;
-    USB0DAT = _Value;
-}
+#define USB_WriteRegister( __UsbAddress, __Value) do { \
+	while (USB0ADR & USB0ADR_BUSY);                    \
+	USB0ADR = __UsbAddress;                             \
+    USB0DAT = __Value;                                  \
+} while(0)                 
 
-void USB_ReadEndpointFifo (U8 _UsbAddress, U8* _Data, U16 _Length)
-{
-	U16 I;
+void USB_ReadEndpointFifo (U8 _UsbAddress, U8* _Data, U16 _Length);
+void USB_WriteEndpointFifo (U8 _UsbAddress, U8* _Data, U16 _Length);
 
-	if (!_Length)
-		return;
-      
-	while (USB0ADR & USB0ADR_BUSY);
-	USB0ADR = _UsbAddress | USB0ADR_AUTORD | USB0ADR_BUSY;       
-	for(I=0;I< (_Length);I++)
-	{
-		while (USB0ADR & USB0ADR_BUSY); 
-		_Data[I] = USB0DAT;           	
-	}        
-}
-
-void USB_WriteEndpointFifo (U8 _UsbAddress, U8* _Data, U16 _Length)
-{
-	U16 i;
-
-	if (!_Length)
-		return;
-       
-	while (USB0ADR & USB0ADR_BUSY);
-	USB0ADR = _UsbAddress | USB0ADR_AUTORD | USB0ADR_BUSY;
-	for (i=0; i<_Length; i++)
-	{
-		while (USB0ADR & USB0ADR_BUSY);  
-		USB0DAT = _Data[i];
-	}
-}
 /*
 #define USB_STRING_GET_17TH(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16, N, ...) N
 #define USB_STRING_NARGS(...) USB_STRING_GET_17TH(__VA_ARGS__, 16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1)

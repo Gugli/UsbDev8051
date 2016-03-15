@@ -126,16 +126,19 @@ INTERRUPT(Usb_ISR, INTERRUPT_USB0)
 {
 	SEvent CurrentEvent;
 	U8 ControlRegister, NewControlRegister;
+	U8 SendStall;
 	SUsbPacket_Setup SetupPacket;
 	U16 RequestedLength;
 	U8 SendOrRecieveIsFinished;
+	U8 Setup_RequestType_Type, Setup_RequestType_Direction, Setup_RequestType_Recipient;
 
 	volatile U8 bob = 0;
 	
-	CurrentEvent.Common  = USB_ReadRegister(USB0ADR_CMINT);
-	CurrentEvent.In      = USB_ReadRegister(USB0ADR_IN1INT);
-	CurrentEvent.Out     = USB_ReadRegister(USB0ADR_OUT1INT);
+	USB_ReadRegister(CurrentEvent.Common, USB0ADR_CMINT);
+	USB_ReadRegister(CurrentEvent.In,     USB0ADR_IN1INT);
+	USB_ReadRegister(CurrentEvent.Out,    USB0ADR_OUT1INT);
 	RequestedLength      = 0;
+	SendStall			 = False;
 
 	if (CurrentEvent.Common & USB0ADR_CMINT_RSUINT)          
     {
@@ -160,7 +163,7 @@ INTERRUPT(Usb_ISR, INTERRUPT_USB0)
 		// Handle SETUP packet received or packet transmitted if Endpoint 0 is in transmit mode
 		
 		USB_WriteRegister( USB0ADR_INDEX, 0);  // Select Endpoint Zero
-		ControlRegister = USB_ReadRegister(USB0ADR_E0CSR);  // Read the control register
+		USB_ReadRegister(ControlRegister, USB0ADR_E0CSR);  // Read the control register
 
 	   if (MC.EndpointStates[0] == EUsbEndpointState_Address )
 	   {
@@ -181,8 +184,9 @@ INTERRUPT(Usb_ISR, INTERRUPT_USB0)
 	    	  MC.EndpointStates[0] = EUsbEndpointState_Idle;
      		  return;		      
 		   }
+
 		   // Handle suspend end
-		   else if (ControlRegister & USB0ADR_E0CSR_SUEND)
+		   if (ControlRegister & USB0ADR_E0CSR_SUEND)
 		   {
 		      USB_WriteRegister (USB0ADR_E0CSR, USB0ADR_E0CSR_DATAEND);
 	    	  USB_WriteRegister (USB0ADR_E0CSR, USB0ADR_E0CSR_SSUEND);
@@ -192,34 +196,57 @@ INTERRUPT(Usb_ISR, INTERRUPT_USB0)
 		   // State machine
 		   if (MC.EndpointStates[0] == EUsbEndpointState_Idle)        // If Endpoint 0 is in idle mode
 		   {
-		      if (ControlRegister & USB0ADR_E0CSR_OPRDY)        // Make sure that EP 0 has an Out Packet
-		      {                                
-		          USB_ReadEndpointFifo(USB0ADR_FIFO_EP0, (U8*)&SetupPacket, sizeof(SetupPacket) );
+		      if (ControlRegister & USB0ADR_E0CSR_OPRDY)        // Make sure that host has an Out Packet
+		      {                    
+				  SetupPacket.RequestType = 0xCD;
+				  SetupPacket.Request = 0xCD;
+				  SetupPacket.Value.LeastSignificantByte = 0xCD;
+				  SetupPacket.Value.MostSignificantByte = 0xCD;
+				  SetupPacket.Index.LeastSignificantByte = 0xCD;
+				  SetupPacket.Index.MostSignificantByte = 0xCD;
+				  SetupPacket.Length.LeastSignificantByte = 0xCD;
+				  SetupPacket.Length.MostSignificantByte = 0xCD;         
+				     
+		          USB_ReadEndpointFifo(USB0ADR_FIFO_EP0, (U8*)&SetupPacket, 8 /*sizeof(SetupPacket)*/ );
 					
-				  RequestedLength  = USB_GetWordValue(SetupPacket.Length);
+				  //RequestedLength  = USB_GetWordValue(SetupPacket.Length);
 
-			      // Intercept HID class-specific requests
-			      if( (SetupPacket.RequestType & 0x7F) == EUsbClass_ClassDescriptorType_HID ) {
-			         switch (SetupPacket.Request) {
-						case EUsbPacket_Setup_Request_GetReport:              // bob++; break;
-						case EUsbPacket_Setup_Request_SetReport:              // bob++; break;
-						case EUsbPacket_Setup_Request_GetIdle:			      // bob++; break;
-						case EUsbPacket_Setup_Request_SetIdle:                // bob++; break;
-						case EUsbPacket_Setup_Request_GetProtocol:            // bob++; break;
-						case EUsbPacket_Setup_Request_SetProtocol:            
-						    bob++; 
-							break;
-						default:																	
-							USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SDSTL);
-							MC.EndpointStates[0] = EUsbEndpointState_Stall;
-						break;                
-			         }
-			      } else if ((SetupPacket.RequestType & 0x7F) == EUsbDescriptorType_Device) {
 
+				  Setup_RequestType_Type      = (SetupPacket.RequestType & EUsbPacket_Setup_RequestType_TypeMask);
+				  Setup_RequestType_Direction = (SetupPacket.RequestType & EUsbPacket_Setup_RequestType_DirMask);
+				  Setup_RequestType_Recipient = (SetupPacket.RequestType & EUsbPacket_Setup_RequestType_RecipientMask);
+
+			      if (Setup_RequestType_Type == EUsbPacket_Setup_RequestType_Type_Standard) {
+					 // standard requests
 			         switch (SetupPacket.Request)      
 			         {   
-						case EUsbPacket_Setup_Request_GetStatus:              // bob++; break;
-						case EUsbPacket_Setup_Request_CleatFeature:           // bob++; break;
+						case EUsbPacket_Setup_Request_GetStatus:              
+						{
+							if ( USB_GetWordValue(SetupPacket.Value) != 0 ) {
+								SendStall = True;
+							}
+							else if ( USB_GetWordValue(SetupPacket.Length) != 2 ) {
+								SendStall = True;
+							}
+							else if ( Setup_RequestType_Type == EUsbPacket_Setup_RequestType_Dir_In ) {
+								SendStall = True;
+							}
+							else {
+								switch(Setup_RequestType_Recipient)    
+	   							{
+								case EUsbPacket_Setup_RequestType_Recipient_Device:
+								case EUsbPacket_Setup_RequestType_Recipient_Interface:
+								case EUsbPacket_Setup_RequestType_Recipient_Endpoint:
+									break;
+								default:
+									SendStall = True;
+									break;
+								}
+							}
+							break;
+						}
+						break;
+						case EUsbPacket_Setup_Request_ClearFeature:           // bob++; break;
 						case EUsbPacket_Setup_Request_SetFeature:			  // bob++; break;
 						case EUsbPacket_Setup_Request_SetAddress:             // bob++; break;
 						case EUsbPacket_Setup_Request_GetDescriptor:          // bob++; break;
@@ -229,13 +256,33 @@ INTERRUPT(Usb_ISR, INTERRUPT_USB0)
 						case EUsbPacket_Setup_Request_SetInterface:  
 						         bob++; 
 								 break;
-						default:						
-							USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SDSTL);
-							MC.EndpointStates[0] = EUsbEndpointState_Stall;
+						default:	
+							SendStall = True;					
 						break;
 					      
 			         }
-				 }
+				 } 
+				 else if( Setup_RequestType_Type == EUsbPacket_Setup_RequestType_Type_Class ) {
+					 // HID class-specific requests
+			         switch (SetupPacket.Request) {
+						case EUsbPacket_Setup_Request_GetReport:              // bob++; break;
+						case EUsbPacket_Setup_Request_SetReport:              // bob++; break;
+						case EUsbPacket_Setup_Request_GetIdle:			      // bob++; break;
+						case EUsbPacket_Setup_Request_SetIdle:                // bob++; break;
+						case EUsbPacket_Setup_Request_GetProtocol:            // bob++; break;
+						case EUsbPacket_Setup_Request_SetProtocol:            
+						    bob++; 
+							break;
+						default:
+							SendStall = True;								
+						break;                
+			         }
+			      } 
+				  
+				  if(SendStall) {									
+						USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SDSTL);
+						MC.EndpointStates[0] = EUsbEndpointState_Stall;
+				  }
 		      }
 		   }
 
