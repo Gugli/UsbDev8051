@@ -248,12 +248,12 @@ typedef enum
 
 #define USB_WriteRegister( __UsbAddress, __Value) do { \
 	while (USB0ADR & USB0ADR_BUSY);                    \
-	USB0ADR = __UsbAddress;                             \
-    USB0DAT = __Value;                                  \
+	USB0ADR = __UsbAddress;          				   \
+    USB0DAT = __Value;                                 \
 } while(0)                 
 
-void USB_ReadEndpointFifo (U8 _UsbAddress, U8* _Data, U16 _Length);
-void USB_WriteEndpointFifo (U8 _UsbAddress, U8* _Data, U16 _Length);
+void USB_ReadEndpointFifo (U8 _UsbAddress, U8* _Data, U8 _Length);
+void USB_WriteEndpointFifo (U8 _UsbAddress, U8* _Data, U8 _Length);
 
 /*
 #define USB_STRING_GET_17TH(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16, N, ...) N

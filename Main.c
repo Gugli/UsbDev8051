@@ -20,6 +20,7 @@ typedef enum
 // Globals
 
 #define MUsb_HighSpeed MEnabled
+//#define MUsb_HighSpeed MDisabled
 
 #if MIsEnabled(MUsb_HighSpeed) 
 #define MUsb_Endpoint0_PacketSize 0x40
@@ -109,7 +110,7 @@ void MC_SetDefault(SMainContext* _MC) {
 	_MC->DataToRecieve_CurrentOffset = 0x00;
 }
 
-SEG_NEAR SMainContext MC;
+SEG_NEAR volatile SMainContext MC;
 
 /////////////////////////////////
 /////////////////////////////////
@@ -142,11 +143,13 @@ INTERRUPT(Usb_ISR, INTERRUPT_USB0)
 
 	if (CurrentEvent.Common & USB0ADR_CMINT_RSUINT)          
     {
-    	// Handle Resume interrupt		
+    	// Handle Resume interrupt	
+		bob++;	
     }
 	if (CurrentEvent.Common & USB0ADR_CMINT_SUSINT)          
 	{
 		// Handle Suspend interrupt
+		bob++;
 	}
 	if (CurrentEvent.Common & USB0ADR_CMINT_RSTINT)          
 	{
@@ -197,19 +200,10 @@ INTERRUPT(Usb_ISR, INTERRUPT_USB0)
 		   if (MC.EndpointStates[0] == EUsbEndpointState_Idle)        // If Endpoint 0 is in idle mode
 		   {
 		      if (ControlRegister & USB0ADR_E0CSR_OPRDY)        // Make sure that host has an Out Packet
-		      {                    
-				  SetupPacket.RequestType = 0xCD;
-				  SetupPacket.Request = 0xCD;
-				  SetupPacket.Value.LeastSignificantByte = 0xCD;
-				  SetupPacket.Value.MostSignificantByte = 0xCD;
-				  SetupPacket.Index.LeastSignificantByte = 0xCD;
-				  SetupPacket.Index.MostSignificantByte = 0xCD;
-				  SetupPacket.Length.LeastSignificantByte = 0xCD;
-				  SetupPacket.Length.MostSignificantByte = 0xCD;         
-				     
-		          USB_ReadEndpointFifo(USB0ADR_FIFO_EP0, (U8*)&SetupPacket, 8 /*sizeof(SetupPacket)*/ );
+		      {     
+			 	  USB_ReadEndpointFifo(USB0ADR_FIFO_EP0, (U8*)&SetupPacket, sizeof(SetupPacket) );
 					
-				  //RequestedLength  = USB_GetWordValue(SetupPacket.Length);
+				  RequestedLength  = USB_GetWordValue(SetupPacket.Length);
 
 
 				  Setup_RequestType_Type      = (SetupPacket.RequestType & EUsbPacket_Setup_RequestType_TypeMask);
@@ -249,7 +243,7 @@ INTERRUPT(Usb_ISR, INTERRUPT_USB0)
 						case EUsbPacket_Setup_Request_ClearFeature:           // bob++; break;
 						case EUsbPacket_Setup_Request_SetFeature:			  // bob++; break;
 						case EUsbPacket_Setup_Request_SetAddress:             // bob++; break;
-						case EUsbPacket_Setup_Request_GetDescriptor:          // bob++; break;
+						case EUsbPacket_Setup_Request_GetDescriptor:          bob = UsbDescriptor.DeviceClass;// bob++; break;
 						case EUsbPacket_Setup_Request_GetConfig:              // bob++; break;
 						case EUsbPacket_Setup_Request_SetConfig:              // bob++; break;
 						case EUsbPacket_Setup_Request_GetInterface:           // bob++; break;
@@ -282,6 +276,9 @@ INTERRUPT(Usb_ISR, INTERRUPT_USB0)
 				  if(SendStall) {									
 						USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SDSTL);
 						MC.EndpointStates[0] = EUsbEndpointState_Stall;
+				  } else {
+
+	    	 		 USB_WriteRegister (USB0ADR_E0CSR, USB0ADR_E0CSR_SOPRDY);
 				  }
 		      }
 		   }
@@ -386,16 +383,21 @@ void main (void)
 
     // Setup clock
 	#if MIsEnabled(MUsb_HighSpeed) 
-	 	OSCICN = OSCICN_IOSCEN | OSCICN_IFCN1 | OSCICN_IFCN0;          // Configure internal oscillator
-	   	CLKMUL = CLKMUL_MULSEL_INTERNAL | CLKMUL_MULEN | CLKMUL_MULINIT;        // Enable clock multiplier
+	 	OSCICN = OSCICN_IOSCEN | OSCICN_DIVBY_1;          // Configure internal oscillator
+		for(I = 0;I < 500;I++);            				  // Delay for Oscillator to begin
+		while(!(OSCICN & OSCICN_IFRDY));                  // Wait for Oscillator to be ready
+
+	   	CLKMUL = CLKMUL_MULSEL_INTERNAL | CLKMUL_MULEN;        // Enable clock multiplier 
+
+		CLKMUL |= CLKMUL_MULINIT;								// Start the multiplier initialization this can not be merged with previous step
 		for(I = 0;I < 500;I++);            									 // Delay for clock multiplier to begin
 	   	while(!(CLKMUL & CLKMUL_MULRDY));   								// Wait for multiplier to lock
 
 	  	CLKSEL = CLKSEL_CLKSL_INTERNAL |CLKSEL_USBCLK_4XMUL;            // Select system clock and USB clock
+ 
     #else
-	   OSCICN = OSCICN_IOSCEN | OSCICN_IFCN1 | OSCICN_IFCN0;
-	   	CLKMUL = CLKMUL_MULSEL_INTERNAL;        // Enable clock multiplier
-	   CLKSEL  = CLKSEL_CLKSL_EXTERNAL | CLKSEL_USBCLK_EXTERNALDIV4;  
+	   OSCICN = OSCICN_IOSCEN | OSCICN_DIVBY_1;
+	   CLKSEL  = CLKSEL_CLKSL_INTERNAL | CLKSEL_USBCLK_INTERNALDIV2;  
 	#endif
 
     // Setup USB
@@ -404,21 +406,26 @@ void main (void)
     USB_WriteRegister(USB0ADR_OUT1IE, USB0DAT_OUT1IE_EP1 | USB0DAT_OUT1IE_EP2); // Enable Endpoint 1-2 out interrupts
 	USB_WriteRegister(USB0ADR_CMIE, USB0DAT_CMIE_RSTINTE | USB0DAT_CMIE_RSUINTE | USB0DAT_CMIE_SUSINTE);  // Enable Reset, Resume, and Suspend interrupts
 
-	USB0XCN = USB0XCN_PREN | USB0XCN_PHYEN | USB0XCN_SPEED; // Activate Usb transciever at Full speed
+	#if MIsEnabled(MUsb_HighSpeed) 
+		USB0XCN = USB0XCN_PREN | USB0XCN_PHYEN | USB0XCN_SPEED; // Activate Usb transciever at Full speed
+    #else
+		USB0XCN = USB0XCN_PREN | USB0XCN_PHYEN; // Activate Usb transciever at Low speed
+	#endif
 	USB_WriteRegister(USB0ADR_CLKREC, USB0DAT_CLKREC_CRE | USB0DAT_CLKREC_MUSTWRITE); // Enable clock recovery
 
-	EIE1 |= 0x02; // Enable USB0 Interrupts
 
-	USB_WriteRegister(USB0ADR_POWER, USB0DAT_POWER_SUSEN); // Activate transciever and enable suspend detection
 	
 	XBR0 = 0x00;                        // No digital peripherals selected
 	XBR1 = 0x40;                        // Enable crossbar and weak pull-ups
 	P2MDOUT |= 0x04;                    // Enable LED as a push-pull output
+	RSTSRC = 0;							// Disable all reset sources
 
 	MC_SetDefault(&MC);
 	FrameCyclicCounterLow = 0;
 	FrameCyclicCounterHigh = 0;
 
+	EIE1 |= 0x02; // Enable USB0 Interrupts
+	USB_WriteRegister(USB0ADR_POWER, USB0DAT_POWER_SUSEN); // Activate transciever and enable suspend detection
    	IE = (IE | 0x80); // global interrupts enable 
 	while (1)
 	{

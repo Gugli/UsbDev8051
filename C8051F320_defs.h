@@ -156,7 +156,7 @@ SFR (VDM0CN, 0xFF);                    // Vdd monitor control
 //-----------------------------------------------------------------------------
 // 16-bit Register Definitions (might not be supported by all compilers)
 //-----------------------------------------------------------------------------
-//*
+
 SFR16 (DP, 0x82);
 SFR16 (TMR3RL, 0x92);
 SFR16 (TMR3, 0x94);
@@ -171,7 +171,7 @@ SFR16 (PCA0CP3, 0xED);
 SFR16 (PCA0, 0xF9);
 SFR16 (PCA0CP0, 0xFB);
 SFR16 (PCA0CP4, 0xFD);
-//*/
+
 //-----------------------------------------------------------------------------
 // Address Definitions for Bit-addressable Registers
 //-----------------------------------------------------------------------------
@@ -328,8 +328,10 @@ SBIT (SPIEN, SFR_SPI0CN, 0);           // SPI0 SPI enable
 #define OSCICN_IOSCEN     0x80  		// Internal Oscillator Enable Bit
 #define OSCICN_IFRDY      0x40  		// Internal Oscillator Frequency Ready Flag
 #define OSCICN_SUSPEND    0x20  		// Force Suspend
-#define OSCICN_IFCN1      0x02  		// Internal Oscillator Frequency Control Bits : unset to divide by 4
-#define OSCICN_IFCN0      0x01  		// Internal Oscillator Frequency Control Bits : unset to divide by 2
+#define OSCICN_DIVBY_8    0x00
+#define OSCICN_DIVBY_4    0x01
+#define OSCICN_DIVBY_2    0x02
+#define OSCICN_DIVBY_1    0x03  		
 
 // CLKMUL
 #define CLKMUL_MULEN      0x80  		// Internal Oscillator Enable Bit
