@@ -474,6 +474,10 @@ SBIT (SPIEN, SFR_SPI0CN, 0);           // SPI0 SPI enable
 #define  USB0ADR_E0CSR_INPRDY       0x02
 #define  USB0ADR_E0CSR_OPRDY        0x01
 
+// USB0ADR_FADDR
+#define  USB0ADR_FADDR_BUSY         0x80
+
+
 //-----------------------------------------------------------------------------
 // Header File PreProcessor Directive
 //-----------------------------------------------------------------------------

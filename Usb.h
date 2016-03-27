@@ -12,7 +12,7 @@ typedef struct
 
 
 #define MUsbWord_Bytes(_MSB, _LSB) {0x##_LSB, 0x##_MSB}
-#define MUsbWord_Word(_WORD) {_WORD & 0xFF, (_WORD > 8) & 0xFF }
+#define MUsbWord_Word(_WORD) {_WORD & 0xFF, (_WORD > 8) & 0xFF}
 
 typedef U8 TUsbByte;
 
@@ -237,7 +237,10 @@ typedef enum
 //////////////////////////////////////////////////
 // Functions & macros
 
-#define USB_GetWordValue(_UsbWord) ( _UsbWord.LeastSignificantByte + 0x0100 * _UsbWord.MostSignificantByte)
+#define USB_Word_GetValue(_UsbWord) ( _UsbWord.LeastSignificantByte + 0x0100 * _UsbWord.MostSignificantByte)
+#define USB_Word_IsEqual(_UsbWord, _MSB, _LSB) (( _UsbWord.LeastSignificantByte == _LSB) && ( _UsbWord.MostSignificantByte == _MSB))
+#define USB_Word_IsNotEqual(_UsbWord, _MSB, _LSB) (( _UsbWord.LeastSignificantByte != _LSB) || ( _UsbWord.MostSignificantByte != _MSB))
+
 
 #define USB_ReadRegister( ___Result, __UsbAddress) do { \
 	while (USB0ADR & USB0ADR_BUSY);                     \
