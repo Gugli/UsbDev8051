@@ -30,25 +30,96 @@ typedef enum
 
 typedef enum 
 {
-	EStringDesc_Manufacturer = 0x00,
-	EStringDesc_Product		 = 0x01,
-	EStringDesc_SerialNb	 = 0x02,
-	EStringDesc_Config		 = 0x03
+	EStringDesc_None              = 0x00,
+	EStringDesc_Manufacturer      = 0x01,
+	EStringDesc_Product		      = 0x02,
+	EStringDesc_SerialNb	      = 0x03,
+	EStringDesc_Config		      = 0x04,
+	EStringDesc_Interface         = 0x05
 } EStringDesc;
 
 /*
-	const unsigned char StringDesc_Manufacturer [] = USB_STRING('G', 'u', 'g', 'l', 'i');
-	const unsigned char StringDesc_Product      [] = USB_STRING('F', 'o', 'o', 't', 's', 'w', 'i', 't', 'c', 'h');
-	const unsigned char StringDesc_SerialNb     [] = USB_STRING('S', 'N', '-', '4', '2');
-	const unsigned char StringDesc_Config       [] = USB_STRING('C', 'o', 'n', 'f', '1');
+SEG_CODE const unsigned char UsbDescriptor_String_Manufacturer            [] = USB_STRING('G','u','g','l','i');
+SEG_CODE const unsigned char UsbDescriptor_String_Product                 [] = USB_STRING('F','o','o','t','s','w','i','t','c','h');
+SEG_CODE const unsigned char UsbDescriptor_String_SerialNb                [] = USB_STRING('S','N','-','4','2');
+SEG_CODE const unsigned char UsbDescriptor_String_Config                  [] = USB_STRING('C','o','n','f','1');
+SEG_CODE const unsigned char UsbDescriptor_String_Interface               [] = USB_STRING('I','n','t','e','r','f','a','c','e');
 //*/
-const unsigned char StringDesc_Manufacturer [] = {12, 0x03, 'G', 0, 'u', 0, 'g', 0, 'l', 0, 'i', 0};
-const unsigned char StringDesc_Product      [] = {22, 0x03, 'F', 0, 'o', 0, 'o', 0, 't', 0, 's', 0, 'w', 0, 'i', 0, 't', 0, 'c', 0, 'h', 0};
-const unsigned char StringDesc_SerialNb     [] = {12, 0x03, 'S', 0, 'N', 0, '-', 0, '4', 0, '2', 0};
-const unsigned char StringDesc_Config       [] = {12, 0x03, 'C', 0, 'o', 0, 'n', 0, 'f', 0, '1', 0};
+SEG_CODE const unsigned char UsbDescriptor_String_AvailableLanguages      [] = { 4, 0x03, 0x09, 0x04};
+SEG_CODE const unsigned char UsbDescriptor_String_Manufacturer            [] = {12, 0x03, 'G', 0, 'u', 0, 'g', 0, 'l', 0, 'i', 0};
+SEG_CODE const unsigned char UsbDescriptor_String_Product                 [] = {22, 0x03, 'F', 0, 'o', 0, 'o', 0, 't', 0, 's', 0, 'w', 0, 'i', 0, 't', 0, 'c', 0, 'h', 0};
+SEG_CODE const unsigned char UsbDescriptor_String_SerialNb                [] = {12, 0x03, 'S', 0, 'N', 0, '-', 0, '4', 0, '2', 0};
+SEG_CODE const unsigned char UsbDescriptor_String_Config                  [] = {12, 0x03, 'C', 0, 'o', 0, 'n', 0, 'f', 0, '1', 0};
+SEG_CODE const unsigned char UsbDescriptor_String_Interface               [] = {20, 0x03, 'I', 0, 'n', 0, 't', 0, 'e', 0, 'r', 0, 'f', 0, 'a', 0, 'c', 0, 'e', 0};
 //*/
 
-SEG_CODE SUsbDescriptor_Device UsbDescriptor_Device =
+SEG_CODE const unsigned char UsbDescriptor_Report_Mouse [50] = 
+{
+    0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
+    0x09, 0x02,                    // USAGE (Mouse)
+    0xa1, 0x01,                    // COLLECTION (Application)
+    0x09, 0x01,                    //   USAGE (Pointer)
+    0xa1, 0x00,                    //   COLLECTION (Physical)
+    0x05, 0x09,                    //     USAGE_PAGE (Button)
+    0x19, 0x01,                    //     USAGE_MINIMUM (Button 1)
+    0x29, 0x03,                    //     USAGE_MAXIMUM (Button 3)
+    0x15, 0x00,                    //     LOGICAL_MINIMUM (0)
+    0x25, 0x01,                    //     LOGICAL_MAXIMUM (1)
+    0x95, 0x03,                    //     REPORT_COUNT (3)
+    0x75, 0x01,                    //     REPORT_SIZE (1)
+    0x81, 0x02,                    //     INPUT (Data,Var,Abs)
+    0x95, 0x01,                    //     REPORT_COUNT (1)
+    0x75, 0x05,                    //     REPORT_SIZE (5)
+    0x81, 0x03,                    //     INPUT (Cnst,Var,Abs)
+    0x05, 0x01,                    //     USAGE_PAGE (Generic Desktop)
+    0x09, 0x30,                    //     USAGE (X)
+    0x09, 0x31,                    //     USAGE (Y)
+    0x15, 0x81,                    //     LOGICAL_MINIMUM (-127)
+    0x25, 0x7f,                    //     LOGICAL_MAXIMUM (127)
+    0x75, 0x08,                    //     REPORT_SIZE (8)
+    0x95, 0x02,                    //     REPORT_COUNT (2)
+    0x81, 0x06,                    //     INPUT (Data,Var,Rel)
+    0xc0,                          //   END_COLLECTION
+    0xc0                           // END_COLLECTION
+};
+
+SEG_CODE const unsigned char UsbDescriptor_Report_Keyboard [63] = {
+    0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
+    0x09, 0x06,                    // USAGE (Keyboard)
+    0xa1, 0x01,                    // COLLECTION (Application)
+    0x05, 0x07,                    //   USAGE_PAGE (Keyboard)
+    0x19, 0xe0,                    //   USAGE_MINIMUM (Keyboard LeftControl)
+    0x29, 0xe7,                    //   USAGE_MAXIMUM (Keyboard Right GUI)
+    0x15, 0x00,                    //   LOGICAL_MINIMUM (0)
+    0x25, 0x01,                    //   LOGICAL_MAXIMUM (1)
+    0x75, 0x01,                    //   REPORT_SIZE (1)
+    0x95, 0x08,                    //   REPORT_COUNT (8)
+    0x81, 0x02,                    //   INPUT (Data,Var,Abs)
+    0x95, 0x01,                    //   REPORT_COUNT (1)
+    0x75, 0x08,                    //   REPORT_SIZE (8)
+    0x81, 0x03,                    //   INPUT (Cnst,Var,Abs)
+    0x95, 0x05,                    //   REPORT_COUNT (5)
+    0x75, 0x01,                    //   REPORT_SIZE (1)
+    0x05, 0x08,                    //   USAGE_PAGE (LEDs)
+    0x19, 0x01,                    //   USAGE_MINIMUM (Num Lock)
+    0x29, 0x05,                    //   USAGE_MAXIMUM (Kana)
+    0x91, 0x02,                    //   OUTPUT (Data,Var,Abs)
+    0x95, 0x01,                    //   REPORT_COUNT (1)
+    0x75, 0x03,                    //   REPORT_SIZE (3)
+    0x91, 0x03,                    //   OUTPUT (Cnst,Var,Abs)
+    0x95, 0x06,                    //   REPORT_COUNT (6)
+    0x75, 0x08,                    //   REPORT_SIZE (8)
+    0x15, 0x00,                    //   LOGICAL_MINIMUM (0)
+    0x25, 0x65,                    //   LOGICAL_MAXIMUM (101)
+    0x05, 0x07,                    //   USAGE_PAGE (Keyboard)
+    0x19, 0x00,                    //   USAGE_MINIMUM (Reserved (no event indicated))
+    0x29, 0x65,                    //   USAGE_MAXIMUM (Keyboard Application)
+    0x81, 0x00,                    //   INPUT (Data,Ary,Abs)
+    0xc0                           // END_COLLECTION
+};
+
+
+SEG_CODE const SUsbDescriptor_Device UsbDescriptor_Device =
 {
 	{
 		sizeof(SUsbDescriptor_Device),		// Size of this Descriptor in Bytes
@@ -58,33 +129,102 @@ SEG_CODE SUsbDescriptor_Device UsbDescriptor_Device =
 	0x00,			 // Device Class Code
 	0x00,			// Device Subclass Code
 	0x00,			 // Device Protocol Code
-	10,			  // Maximum Packet Size for EP0
-	MUsbWord_Word(EUsbVendorId_Prototype),	 // Vendor ID
-	MUsbWord_Bytes(00,01),					 // Product ID
-	MUsbWord_Bytes(00,01),					   // Device Release Number
+	0x40,			  // Maximum Packet Size for EP0
+	MUsbWord_Word(EUsbVendorId_SciLabs),	 // Vendor ID
+	MUsbWord_Bytes(81,B9),					 // Product ID
+	MUsbWord_Bytes(00,00),					   // Device Release Number
 	EStringDesc_Manufacturer,
 	EStringDesc_Product,		
 	EStringDesc_SerialNb,		
 	0x01		   // Number of possible Configurations
 };
 
-SEG_CODE SUsbDescriptor_Configuration UsbDescriptor_Configuration =
+typedef struct 
 {
+   SUsbDescriptor_Configuration  Common;
+
+   SUsbDescriptor_Interface      Mouse_Interface;
+   SUsbDescriptor_HIDClass       Mouse_HIDClass;
+   SUsbDescriptor_Endpoint       Mouse_Endpoint1_In;
+   /*
+   SUsbDescriptor_Interface      Keyboard_Interface;
+   SUsbDescriptor_HIDClass       Keyboard_HIDClass;
+   SUsbDescriptor_Endpoint       Keyboard_Endpoint1_In;
+
+   */
+
+} SUsbDescriptor_Configuration1;
+
+SEG_CODE SUsbDescriptor_Configuration1 UsbDescriptor_Configuration =
+{
+	// Common
 	{
-		sizeof(SUsbDescriptor_Configuration),		
-		EUsbDescriptorType_Configuration			
-	},			  
-   MUsbWord_Bytes(00,01), // Total Length of Data for this Conf
-   0x02,	// InterfacesCount
-   0x01,	// Designator Value for *this* Configuration
-   EStringDesc_Config,	// ConfigurationStringIndex;
-   0x00,	// Configuration Characteristics (see below)
-   0x32 	// (MaxPower*2)mA is the power allowed
-};
+		{
+			sizeof(SUsbDescriptor_Configuration),		
+			EUsbDescriptorType_Configuration			
+		},			  
+		MUsbWord_Word(sizeof(SUsbDescriptor_Configuration1)),
+		0x01,	// InterfacesCount
+		0x01,	// Designator Value for *this* Configuration
+		EStringDesc_Config,
+		EUsbConfiguration_Attributes_MustWrite | 
+		EUsbConfiguration_Attributes_HostPowered | 
+		EUsbConfiguration_Attributes_RemoteWakeupOff,
+		0x20 	// (MaxPower*2)mA is the power allowed
+	},
+
+	// Interface
+	{
+		{
+			sizeof(SUsbDescriptor_Interface),		
+			EUsbDescriptorType_Interface			
+		},	
+		0x00,  // bInterfaceNumber
+		0x00,  // bAlternateSetting
+		0x01,  // bNumEndpoints
+		EUsbInterface_Class_HID, 
+		EUsbInterface_SubClass_HID_NoBootInterface,		//EUsbInterface_SubClass_HID_BootInterface,
+		EUsbInterface_Protocol_HID_NoBootInterface,		//EUsbInterface_Protocol_HID_BootInterface_Mouse, 
+		EStringDesc_Interface,
+	},
+
+	// HIDClass
+	{
+		{
+			sizeof(SUsbDescriptor_HIDClass),		
+			EUsbDescriptorType_HIDClass,			
+		},	
+		MUsbWord_Word( EUsbHIDSpecVer_1d01 ),   
+		EUsbDescriptor_HIDClass_CountryCode_Default, 
+		0x01,                           // SubordinateDescriptorsCount;
+		EUsbDescriptorType_HIDReport,   // DescriptorType
+		MUsbWord_Word( sizeof(UsbDescriptor_Report_Mouse) ),    
+	},
+
+	// Endpoint
+	{
+		{
+			sizeof(SUsbDescriptor_Endpoint),		
+			EUsbDescriptorType_Endpoint,			
+		},	
+		0x81, // Endpoint Address (Number + Direction)
+		EUsbEndpoint_Attributes_Interrupt, // bmAttributes
+		MUsbWord_Word( 10 ), // MaxPacketSize
+		10    // bInterval in ms
+	}
+};           
 
 /////////////////////////////////
 /////////////////////////////////
 // Structs
+
+
+typedef enum 
+{
+	EUsbDeviceState_JustAfterReset	, 
+	EUsbDeviceState_HasAdress		,
+	EUsbDeviceState_FullyConfigured		
+} EUsbDeviceState;
 
 typedef enum 
 {
@@ -99,9 +239,10 @@ typedef enum
 } EUsbEndpointState;
 
 typedef struct {
+	EUsbDeviceState   DeviceState;
 	EUsbEndpointState EndpointStates[3];
 	
-	U8 Usb_FADDR;
+	U16 Usb_FADDR;
 	
 	U8* DataToSend_Ptr;	  
 	U16 DataToSend_Size;			// Size that the software wants to send
@@ -116,6 +257,8 @@ typedef struct {
 } SMainContext;
 
 void MC_SetDefault(SMainContext* _MC) {
+	_MC->DeviceState       = EUsbDeviceState_JustAfterReset;
+
 	_MC->EndpointStates[0] = EUsbEndpointState_Idle;
 	_MC->EndpointStates[1] = EUsbEndpointState_Halt;
 	_MC->EndpointStates[2] = EUsbEndpointState_Halt;
@@ -141,20 +284,20 @@ SEG_NEAR volatile SMainContext MC;
 
 typedef enum 
 {
-	EUsbEventType_None,
-	EUsbEventType_Resume,
-	EUsbEventType_Suspend,
-	EUsbEventType_SetupEnd,
-	EUsbEventType_Reset,
-	EUsbEventType_Stall,
-	EUsbEventType_EP0_In_Before,
-	EUsbEventType_EP0_In_SetupEnd,
-	EUsbEventType_EP0_In_OutgoingPacketTransmitted,
-	EUsbEventType_EP0_In_IncomingPacketRecieved,
-	EUsbEventType_EP0_In_After,
+	EUsbEventType_None                             = 0x00, 
+	EUsbEventType_Resume                           = 0x01, 
+	EUsbEventType_Suspend                          = 0x02, 
+	EUsbEventType_SetupEnd                         = 0x03, 
+	EUsbEventType_Reset                            = 0x04, 
+	EUsbEventType_Stall                            = 0x05, 
+	EUsbEventType_EP0_In_Before                    = 0x06, 
+	EUsbEventType_EP0_In_SetupEnd                  = 0x07, 
+	EUsbEventType_EP0_In_OutgoingPacketTransmitted = 0x08, 
+	EUsbEventType_EP0_In_IncomingPacketRecieved    = 0x09, 
+	EUsbEventType_EP0_In_After                     = 0x0a,
 	
-	EUsbEventType_EP1_In,
-	EUsbEventType_EP1_Out,
+	EUsbEventType_EP1_In                           = 0x0b, 
+	EUsbEventType_EP1_Out                          = 0x0c, 
 } EUsbEventType;
 
 typedef struct
@@ -163,6 +306,18 @@ typedef struct
 	
 } SUsbEvent;
 
+typedef struct 
+{
+	//EUsbEventType Type;
+	SUsbPacket_Setup Packet;
+
+} SDbg_Event;
+
+#define Dbg_EventLog_MaxSize 50
+
+SEG_FAR volatile SDbg_Event  Dbg_EventLog[Dbg_EventLog_MaxSize];
+SEG_FAR volatile U8          Dbg_EventLog_Size = 0;
+
 void Usb_ISR_HandleEvent(SUsbEvent* _Event)
 {	
 	U8 ControlRegister, NewControlRegister;
@@ -170,11 +325,25 @@ void Usb_ISR_HandleEvent(SUsbEvent* _Event)
 	U8 SendOrRecieveIsFinished;
 	U8 Setup_RequestType_Type, Setup_RequestType_Direction, Setup_RequestType_Recipient;
 	U8 bob;
-	
+	U16 DataToSend_ActualSize;
+
+	/*/
+	Dbg_EventLog[Dbg_EventLog_Size%Dbg_EventLog_MaxSize].Type  = _Event->Type;
+	Dbg_EventLog_Size++;
+	if(Dbg_EventLog_Size>=Dbg_EventLog_MaxSize) {
+		bob++;
+	}
+	//*/
+
 	switch( _Event->Type )
 	{
-		case EUsbEventType_Resume:		break;
-		case EUsbEventType_Suspend:		break;
+		case EUsbEventType_Resume:				
+		break;
+		
+		case EUsbEventType_Suspend:		
+		// Disable oscillator until resume
+		// OSCICN |= OSCICN_SUSPEND;
+		break;
 		
 		case EUsbEventType_SetupEnd:	
 		USB_WriteRegister (USB0ADR_E0CSR, USB0ADR_E0CSR_DATAEND);
@@ -234,16 +403,25 @@ void Usb_ISR_HandleEvent(SUsbEvent* _Event)
 			Setup_RequestType_Type		= (SetupPacket.RequestType & EUsbPacket_Setup_RequestType_TypeMask);
 			Setup_RequestType_Direction = (SetupPacket.RequestType & EUsbPacket_Setup_RequestType_DirMask);
 			Setup_RequestType_Recipient = (SetupPacket.RequestType & EUsbPacket_Setup_RequestType_RecipientMask);
-			
+
+			//*/
+			Dbg_EventLog[Dbg_EventLog_Size%Dbg_EventLog_MaxSize].Packet  = SetupPacket;
+			Dbg_EventLog_Size++;
+			if(Dbg_EventLog_Size>=Dbg_EventLog_MaxSize) {
+				bob++;
+			}
+			//*/
+
 			if (Setup_RequestType_Type == EUsbPacket_Setup_RequestType_Type_Standard) {
 				// standard requests
 				switch (SetupPacket.Request)	  
 				{	
+				    /*
 					case EUsbPacket_Setup_Request_GetStatus:			  
 					{
 						if ( USB_Word_IsNotEqual(SetupPacket.Value, 0x00, 0x00 ) ||
-						USB_Word_IsNotEqual(SetupPacket.Value, 0x00, 0x02 ) ||
-						Setup_RequestType_Direction == EUsbPacket_Setup_RequestType_Dir_In ) 
+						     USB_Word_IsNotEqual(SetupPacket.Length, 0x00, 0x02 ) ||
+						     Setup_RequestType_Direction == EUsbPacket_Setup_RequestType_Dir_In ) 
 						{
 							USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SDSTL);
 							MC.EndpointStates[0] = EUsbEndpointState_Stall;
@@ -265,9 +443,26 @@ void Usb_ISR_HandleEvent(SUsbEvent* _Event)
 						break;
 					}
 					break;
-					case EUsbPacket_Setup_Request_ClearFeature:			  bob++; break;
-					case EUsbPacket_Setup_Request_SetFeature:			  bob++; break;
-					case EUsbPacket_Setup_Request_SetAddress:			  bob++; break;
+					*/
+					case EUsbPacket_Setup_Request_SetAddress:			  
+					{	
+						if ( USB_Word_IsNotEqual(SetupPacket.Index, 0x00, 0x00 ) ||
+						     USB_Word_IsNotEqual(SetupPacket.Length, 0x00, 0x00 ) ||
+						     Setup_RequestType_Direction != EUsbPacket_Setup_RequestType_Dir_Out ||
+							 Setup_RequestType_Recipient != EUsbPacket_Setup_RequestType_Recipient_Device ) 
+						{
+							USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SDSTL);
+							MC.EndpointStates[0] = EUsbEndpointState_Stall;
+						}						
+						else 
+						{
+							MC.DeviceState = EUsbDeviceState_HasAdress;
+							MC.EndpointStates[0] = EUsbEndpointState_Address;
+							MC.Usb_FADDR = USB_Word_GetValue(SetupPacket.Value);
+							USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SOPRDY | USB0ADR_E0CSR_DATAEND);
+						}
+					}
+					break;
 					case EUsbPacket_Setup_Request_GetDescriptor:		  
 					{
 						switch(SetupPacket.Value.MostSignificantByte) // MSB =Descriptor type
@@ -309,10 +504,12 @@ void Usb_ISR_HandleEvent(SUsbEvent* _Event)
 							case EUsbDescriptorType_String:
 							switch (SetupPacket.Value.LeastSignificantByte)
 							{
-								case EStringDesc_Manufacturer:    MC.DataToSend_Ptr = (U8*)&StringDesc_Manufacturer; break;
-								case EStringDesc_Product:         MC.DataToSend_Ptr = (U8*)&StringDesc_Product; break;
-								case EStringDesc_SerialNb:        MC.DataToSend_Ptr = (U8*)&StringDesc_SerialNb; break;
-								case EStringDesc_Config:          MC.DataToSend_Ptr = (U8*)&StringDesc_Config; break;
+								case EStringDesc_None:            MC.DataToSend_Ptr = (U8*)&UsbDescriptor_String_AvailableLanguages; break;
+								case EStringDesc_Manufacturer:    MC.DataToSend_Ptr = (U8*)&UsbDescriptor_String_Manufacturer; break;
+								case EStringDesc_Product:         MC.DataToSend_Ptr = (U8*)&UsbDescriptor_String_Product; break;
+								case EStringDesc_SerialNb:        MC.DataToSend_Ptr = (U8*)&UsbDescriptor_String_SerialNb; break;
+								case EStringDesc_Config:          MC.DataToSend_Ptr = (U8*)&UsbDescriptor_String_Config; break;
+								case EStringDesc_Interface:       MC.DataToSend_Ptr = (U8*)&UsbDescriptor_String_Interface; break;
 								default:
 								USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SDSTL);
 								MC.EndpointStates[0] = EUsbEndpointState_Stall;
@@ -328,6 +525,26 @@ void Usb_ISR_HandleEvent(SUsbEvent* _Event)
 							}
 							break;
 
+							case EUsbDescriptorType_HIDReport:
+							if(SetupPacket.Value.LeastSignificantByte == 0)
+							{
+								MC.DataToSend_Ptr = (U8*)&UsbDescriptor_Report_Mouse;
+								MC.DataToSend_Size = sizeof(UsbDescriptor_Report_Mouse);
+							}
+							else
+							{
+								USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SDSTL);
+								MC.EndpointStates[0] = EUsbEndpointState_Stall;
+							}
+							if( MC.EndpointStates[0] != EUsbEndpointState_Stall )
+							{
+								MC.DataToSend_Size_Host = USB_Word_GetValue(SetupPacket.Length);
+								MC.DataToSend_CurrentOffset = 0;
+								MC.EndpointStates[0] = EUsbEndpointState_Transmit;	
+								USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SOPRDY);
+							}
+							break;
+
 							case EUsbDescriptorType_Interface:
 							case EUsbDescriptorType_Endpoint:
 							default:
@@ -336,13 +553,51 @@ void Usb_ISR_HandleEvent(SUsbEvent* _Event)
 							break;
 						}
 						break;
+					}			 
+					case EUsbPacket_Setup_Request_SetConfig:
+					{
+						if ( USB_Word_IsNotEqual(SetupPacket.Index, 0x00, 0x00 ) ||
+						     USB_Word_IsNotEqual(SetupPacket.Length, 0x00, 0x00 ) ||
+							 (SetupPacket.Value.MostSignificantByte != 0x00) ||
+							 (SetupPacket.Value.LeastSignificantByte != 0x00 && SetupPacket.Value.LeastSignificantByte != 0x01) ||
+						     Setup_RequestType_Direction != EUsbPacket_Setup_RequestType_Dir_Out ||
+							 Setup_RequestType_Recipient != EUsbPacket_Setup_RequestType_Recipient_Device ) 
+						{
+							USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SDSTL);
+							MC.EndpointStates[0] = EUsbEndpointState_Stall;
+						}						
+						else 
+						{
+							if( SetupPacket.Value.LeastSignificantByte == 0x00 ) {
+								// Not configured
+								MC.DeviceState = EUsbDeviceState_HasAdress;
+								MC.EndpointStates[1] = EUsbEndpointState_Halt;
+								MC.EndpointStates[2] = EUsbEndpointState_Halt;
+
+							} else {
+								// SetupPacket.Value.LeastSignificantByte == 0x01
+								MC.DeviceState = EUsbDeviceState_FullyConfigured;
+								MC.EndpointStates[0] = EUsbEndpointState_Address;
+								MC.EndpointStates[1] = EUsbEndpointState_Idle;
+								MC.EndpointStates[2] = EUsbEndpointState_Idle;
+								
+						        USB_WriteRegister (USB0ADR_INDEX, 1);   // Change index to endpoint 1
+						        USB_WriteRegister (USB0ADR_EINCSRH, USB0ADR_EINCSRH_SPLIT);
+						        USB_WriteRegister (USB0ADR_INDEX, 0);   // Set index back to endpoint 0
+
+							}
+							USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SOPRDY | USB0ADR_E0CSR_DATAEND);
+						}
+
 					}
-					case EUsbPacket_Setup_Request_GetConfig:			  bob++; break;
-					case EUsbPacket_Setup_Request_SetConfig:			  bob++; break;
-					case EUsbPacket_Setup_Request_GetInterface:			  bob++; break;
-					case EUsbPacket_Setup_Request_SetInterface:	 
-					
-					break;
+					break;			 
+					case EUsbPacket_Setup_Request_GetConfig:
+					case EUsbPacket_Setup_Request_GetInterface:	
+					case EUsbPacket_Setup_Request_SetInterface:
+					case EUsbPacket_Setup_Request_ClearFeature:			 
+					case EUsbPacket_Setup_Request_SetFeature:			 
+					bob++;
+					//break;
 					default:
 					USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SDSTL);
 					MC.EndpointStates[0] = EUsbEndpointState_Stall;				
@@ -354,13 +609,13 @@ void Usb_ISR_HandleEvent(SUsbEvent* _Event)
 				// HID class-specific requests
 				switch (SetupPacket.Request) 
 				{
-					case EUsbPacket_Setup_Request_GetReport:			  bob++; break;
-					case EUsbPacket_Setup_Request_SetReport:			  bob++; break;
-					case EUsbPacket_Setup_Request_GetIdle:				  bob++; break;
-					case EUsbPacket_Setup_Request_SetIdle:				  bob++; break;
-					case EUsbPacket_Setup_Request_GetProtocol:			  bob++; break;
+					case EUsbPacket_Setup_Request_GetReport:			  
+					case EUsbPacket_Setup_Request_SetReport:			  
+					case EUsbPacket_Setup_Request_GetIdle:				  
+					case EUsbPacket_Setup_Request_SetIdle:				  
+					case EUsbPacket_Setup_Request_GetProtocol:	
 					case EUsbPacket_Setup_Request_SetProtocol:			  
-					
+					bob++;
 					break;
 					
 					default:
@@ -369,7 +624,10 @@ void Usb_ISR_HandleEvent(SUsbEvent* _Event)
 					break;				  
 					
 				} 
-			}  
+			} else {
+				USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SDSTL);
+				MC.EndpointStates[0] = EUsbEndpointState_Stall;	
+			} 
 		}
 		break;
 		
@@ -377,44 +635,44 @@ void Usb_ISR_HandleEvent(SUsbEvent* _Event)
 		// Current event has been handled,
 		// check if we can start transmitting
 		case EUsbEventType_EP0_In_OutgoingPacketTransmitted:
-		USB_WriteRegister( USB0ADR_INDEX, 0);  // Select Endpoint Zero
-		USB_ReadRegister(ControlRegister, USB0ADR_E0CSR);  // Read the control register 
 		
-		if (MC.EndpointStates[0] == EUsbEndpointState_Transmit &&
-		(ControlRegister & USB0ADR_E0CSR_SUEND) == 0 &&
-		(ControlRegister & USB0ADR_E0CSR_INPRDY) == 0 &&
-		(ControlRegister & USB0ADR_E0CSR_OPRDY) == 0 ) // We're not doing anything else
+		if (MC.EndpointStates[0] == EUsbEndpointState_Transmit)
 		{
-			SendOrRecieveIsFinished = False;
+			USB_WriteRegister( USB0ADR_INDEX, 0);  // Select Endpoint Zero
+			USB_ReadRegister(ControlRegister, USB0ADR_E0CSR);  // Read the control register 
+
+			if( (ControlRegister & USB0ADR_E0CSR_SUEND) == 0 &&
+				(ControlRegister & USB0ADR_E0CSR_INPRDY) == 0 &&
+				(ControlRegister & USB0ADR_E0CSR_OPRDY) == 0 ) // We're not doing anything else
+			{
+				SendOrRecieveIsFinished = False;
 			
-			NewControlRegister = USB0ADR_E0CSR_INPRDY;
-			if ( MUsb_Endpoint0_PacketSize <= MC.DataToSend_Size - MC.DataToSend_CurrentOffset )
-			{
-				// Break Data into multiple packets if larger than Max Packet
-				USB_WriteEndpointFifo(USB0ADR_FIFO_EP0, MC.DataToSend_Ptr + MC.DataToSend_CurrentOffset, MUsb_Endpoint0_PacketSize ); 
-				MC.DataToSend_CurrentOffset += MUsb_Endpoint0_PacketSize;			   
-			}
-			else
-			{
-				USB_WriteEndpointFifo(USB0ADR_FIFO_EP0, MC.DataToSend_Ptr + MC.DataToSend_CurrentOffset, MC.DataToSend_Size - MC.DataToSend_CurrentOffset );  
-				MC.DataToSend_CurrentOffset = MC.DataToSend_Size;	  
-				SendOrRecieveIsFinished = True;
-			}
-			if (MC.DataToSend_CurrentOffset == MC.DataToSend_Size_Host)
-			{
-				// This case exists when the host requests an even multiple of
-				// your endpoint zero max packet size, and you need to exit
-				// transmit mode without sending a zero length packet
-				SendOrRecieveIsFinished = True;
-			}
-			if( SendOrRecieveIsFinished ) {
-				NewControlRegister |= USB0ADR_E0CSR_DATAEND; // Add Data End bit to mask
-				MC.EndpointStates[0] = EUsbEndpointState_Idle; // Return EP 0 to idle state
+				NewControlRegister = USB0ADR_E0CSR_INPRDY;
+				DataToSend_ActualSize = (MC.DataToSend_Size < MC.DataToSend_Size_Host) ? MC.DataToSend_Size : MC.DataToSend_Size_Host; 
+
+				if ( MUsb_Endpoint0_PacketSize >= DataToSend_ActualSize - MC.DataToSend_CurrentOffset )
+				{
+					USB_WriteEndpointFifo(USB0ADR_FIFO_EP0, MC.DataToSend_Ptr + MC.DataToSend_CurrentOffset, DataToSend_ActualSize - MC.DataToSend_CurrentOffset );  
+					MC.DataToSend_CurrentOffset = DataToSend_ActualSize;	  
+					SendOrRecieveIsFinished = True;			   
+				}
+				else
+				{
+					// Break Data into multiple packets if larger than Max Packet
+					USB_WriteEndpointFifo(USB0ADR_FIFO_EP0, MC.DataToSend_Ptr + MC.DataToSend_CurrentOffset, MUsb_Endpoint0_PacketSize ); 
+					MC.DataToSend_CurrentOffset += MUsb_Endpoint0_PacketSize;
+				}
+
+				if( SendOrRecieveIsFinished ) {
+					NewControlRegister |= USB0ADR_E0CSR_DATAEND; // Add Data End bit to mask
+					MC.EndpointStates[0] = EUsbEndpointState_Idle; // Return EP 0 to idle state
 				
+				}
+				USB_WriteRegister(USB0ADR_E0CSR, NewControlRegister);	
 			}
-			USB_WriteRegister(USB0ADR_E0CSR, NewControlRegister);	
 		}
 		break;
+
 		default:
 		USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SDSTL);
 		MC.EndpointStates[0] = EUsbEndpointState_Stall;

@@ -12,7 +12,7 @@ typedef struct
 
 
 #define MUsbWord_Bytes(_MSB, _LSB) {0x##_LSB, 0x##_MSB}
-#define MUsbWord_Word(_WORD) {_WORD & 0xFF, (_WORD > 8) & 0xFF}
+#define MUsbWord_Word(_WORD) {(_WORD & 0xFF), ((_WORD >> 8) & 0xFF)}
 
 typedef U8 TUsbByte;
 
@@ -29,25 +29,27 @@ typedef enum
 	EUsbDescriptorType_Configuration = 0x02,
 	EUsbDescriptorType_String = 0x03,
 	EUsbDescriptorType_Interface = 0x04,
-	EUsbDescriptorType_Endpoint = 0x05
+	EUsbDescriptorType_Endpoint = 0x05,
+	EUsbDescriptorType_HIDClass = 0x21,
+	EUsbDescriptorType_HIDReport = 0x22 
 } EUsbDescriptorType;
-// Merge this 2 enums ?
-typedef enum
-{
-	EUsbClass_ClassDescriptorType_HID = 0x21,
-	EUsbClass_ReportDescriptorType_HID = 0x22 
-} EUsbClass_DescriptorType;
 
 typedef enum 
 {
-	EUsbSpecVer_1d1 = 0x1001,	// USB 1.1
-	EUsbSpecVer_2 = 0x0002,		// USB 2
-	EUsbSpecVer_3 = 0x0003		// USB 3
+	EUsbSpecVer_1d1 = 0x0110,	// USB 1.1
+	EUsbSpecVer_2 = 0x0200,		// USB 2
+	EUsbSpecVer_3 = 0x0300		// USB 3
 } EUsbSpecVer;
 
 typedef enum 
 {
-	EUsbVendorId_Prototype = 0x6666
+	EUsbHIDSpecVer_1d01 = 0x0101,	// USB 1.01
+} EUsbHIDSpecVer;
+
+typedef enum 
+{
+	EUsbVendorId_Prototype = 0x6666,
+	EUsbVendorId_SciLabs = 0x10C4
 } EUsbVendorId;
 
 typedef struct
@@ -87,12 +89,15 @@ typedef enum
 
 typedef enum
 {
-	EUsbInterface_SubClass_None = 0x00
+	EUsbInterface_SubClass_HID_NoBootInterface = 0x00,
+	EUsbInterface_SubClass_HID_BootInterface = 0x01,
 } EUsbInterface_SubClass;
 
 typedef enum
 {
-	EUsbInterface_Protocol_None = 0x00
+	EUsbInterface_Protocol_HID_NoBootInterface = 0x00,
+	EUsbInterface_Protocol_HID_BootInterface_Keyboard = 0x01,
+	EUsbInterface_Protocol_HID_BootInterface_Mouse = 0x02,
 } EUsbInterface_Protocol;
 
 typedef struct
@@ -112,10 +117,10 @@ typedef struct
    SUsbDescriptorHeader				Header; 
    TUsbWord							ClassSpecReleaseNumber;
    TUsbByte							CountryCode; 
-   TUsbByte							DescriptorsCount;
-   TUsbByte							ReportDescriptorType; 
-   TUsbWord							ItemLength;
-} SUsbDescriptor_Class;              
+   TUsbByte							SubordinateDescriptorsCount;
+   TUsbByte							DescriptorType; 
+   TUsbWord							DescriptorLength;
+} SUsbDescriptor_HIDClass;              
 
 typedef struct
 {
@@ -126,8 +131,12 @@ typedef struct
    TUsbByte PollingInterval;        // In ms
 } SUsbDescriptor_Endpoint;              
 
-typedef unsigned char const * const * const SUsbDescriptor_StringTable;
+typedef enum
+{
+	EUsbDescriptor_HIDClass_CountryCode_Default = 0x00,
+} EUsbDescriptor_HIDClass_CountryCode;
 
+typedef unsigned char const * const SUsbDescriptor_Report;
 
 typedef struct 
 {
@@ -145,8 +154,8 @@ typedef enum
 	EUsbPacket_Setup_RequestType_TypeMask        = 0x60,
 	EUsbPacket_Setup_RequestType_RecipientMask   = 0x1F,
 
-	EUsbPacket_Setup_RequestType_Dir_Out		 = 0x00,
-	EUsbPacket_Setup_RequestType_Dir_In  		 = 0x80,
+	EUsbPacket_Setup_RequestType_Dir_Out		 = 0x00, // Host to device
+	EUsbPacket_Setup_RequestType_Dir_In  		 = 0x80, // Device to host
 
 	EUsbPacket_Setup_RequestType_Type_Standard   = 0x00,
 	EUsbPacket_Setup_RequestType_Type_Class 	 = 0x20,
@@ -183,55 +192,29 @@ typedef enum
 	EUsbPacket_Setup_Request_SetProtocol   = 0x0B
 
 } EUsbPacket_Setup_Request;
-/*
 
-// Define device states
-#define  DEV_ATTACHED            0x00  // Device is in Attached State
-#define  DEV_POWERED             0x01  // Device is in Powered State
-#define  DEV_DEFAULT             0x02  // Device is in Default State
-#define  DEV_ADDRESS             0x03  // Device is in Addressed State
-#define  DEV_CONFIGURED          0x04  // Device is in Configured State
-#define  DEV_SUSPENDED           0x05  // Device is in Suspended State
 
-// Define bmRequestType bitmaps
-#define  IN_DEVICE               0x00  // Request made to device,
-                                       // direction is IN
-#define  OUT_DEVICE              0x80  // Request made to device,
-                                       // direction is OUT
-#define  IN_INTERFACE            0x01  // Request made to interface,
-                                       // direction is IN
-#define  OUT_INTERFACE           0x81  // Request made to interface,
-                                       // direction is OUT
-#define  IN_ENDPOINT             0x02  // Request made to endpoint,
-                                       // direction is IN
-#define  OUT_ENDPOINT            0x82  // Request made to endpoint,
-                                       // direction is OUT
+typedef enum
+{
+	EUsbConfiguration_Attributes_SelfPowered = 0x40,
+	EUsbConfiguration_Attributes_HostPowered = 0x00,
 
-// Define wIndex bitmaps
-#define  IN_EP1                  0x81  // Index values used by Set and Clear
-                                       // feature
-#define  OUT_EP1                 0x01  // commands for Endpoint_Halt
-#define  IN_EP2                  0x82
-#define  OUT_EP2                 0x02
+	EUsbConfiguration_Attributes_RemoteWakeupOn = 0x20,
+	EUsbConfiguration_Attributes_RemoteWakeupOff = 0x00,
 
-// Define wValue bitmaps for Standard Feature Selectors
-#define  DEVICE_REMOTE_WAKEUP    0x01  // Remote wakeup feature(not used)
-#define  ENDPOINT_HALT           0x00  // Endpoint_Halt feature selector
+	EUsbConfiguration_Attributes_MustWrite = 0x80,
 
-// Define Endpoint States
-#define  EP_IDLE                 0x00  // This signifies Endpoint Idle State
-#define  EP_TX                   0x01  // Endpoint Transmit State
-#define  EP_RX                   0x02  // Endpoint Receive State
-#define  EP_HALT                 0x03  // Endpoint Halt State (return stalls)
-#define  EP_STALL                0x04  // Endpoint Stall (send procedural stall
-                                       // next status phase)
-#define  EP_ADDRESS              0x05  // Endpoint Address (change FADDR during
-                                       // next status phase)
-#define  EP_GetReport            0x06  // Special Control Endpoint State for
-                                       // GetReport HID Request
-#define  EP_SetReport            0x07  // Special Control Endpoint State for
-                                       // SetReport HID Request
-*/            
+} EUsbConfiguration_Attributes;
+
+typedef enum
+{
+	EUsbEndpoint_Attributes_Control = 0x00,
+	EUsbEndpoint_Attributes_Isochronous = 0x01,
+	EUsbEndpoint_Attributes_Bulk = 0x10,
+	EUsbEndpoint_Attributes_Interrupt = 0x11,
+
+} EUsbEndpoint_Attributes;
+
 
 //////////////////////////////////////////////////
 //////////////////////////////////////////////////
