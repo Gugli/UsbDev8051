@@ -243,6 +243,9 @@ typedef struct {
 	EUsbEndpointState EndpointStates[3];
 	
 	U16 Usb_FADDR;
+
+	U8  DataToSend_TempBuffer[10];   
+	U8  DataToSend_TempBuffer_Size;
 	
 	U8* DataToSend_Ptr;	  
 	U16 DataToSend_Size;			// Size that the software wants to send
@@ -416,34 +419,6 @@ void Usb_ISR_HandleEvent(SUsbEvent* _Event)
 				// standard requests
 				switch (SetupPacket.Request)	  
 				{	
-				    /*
-					case EUsbPacket_Setup_Request_GetStatus:			  
-					{
-						if ( USB_Word_IsNotEqual(SetupPacket.Value, 0x00, 0x00 ) ||
-						     USB_Word_IsNotEqual(SetupPacket.Length, 0x00, 0x02 ) ||
-						     Setup_RequestType_Direction == EUsbPacket_Setup_RequestType_Dir_In ) 
-						{
-							USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SDSTL);
-							MC.EndpointStates[0] = EUsbEndpointState_Stall;
-						}						
-						else 
-						{
-							switch(Setup_RequestType_Recipient)	   
-							{
-								case EUsbPacket_Setup_RequestType_Recipient_Device:
-								case EUsbPacket_Setup_RequestType_Recipient_Interface:
-								case EUsbPacket_Setup_RequestType_Recipient_Endpoint:
-								break;
-								default:
-								USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SDSTL);
-								MC.EndpointStates[0] = EUsbEndpointState_Stall;
-								break;
-							}
-						}
-						break;
-					}
-					break;
-					*/
 					case EUsbPacket_Setup_Request_SetAddress:			  
 					{	
 						if ( USB_Word_IsNotEqual(SetupPacket.Index, 0x00, 0x00 ) ||
@@ -590,7 +565,8 @@ void Usb_ISR_HandleEvent(SUsbEvent* _Event)
 						}
 
 					}
-					break;			 
+					break;	
+					case EUsbPacket_Setup_Request_GetStatus:			 
 					case EUsbPacket_Setup_Request_GetConfig:
 					case EUsbPacket_Setup_Request_GetInterface:	
 					case EUsbPacket_Setup_Request_SetInterface:
@@ -610,14 +586,54 @@ void Usb_ISR_HandleEvent(SUsbEvent* _Event)
 				switch (SetupPacket.Request) 
 				{
 					case EUsbPacket_Setup_Request_GetReport:			  
+					{
+						MC.DataToSend_TempBuffer_Size = 0;
+						MC.DataToSend_TempBuffer[MC.DataToSend_TempBuffer_Size++] = 0;
+						MC.DataToSend_TempBuffer[MC.DataToSend_TempBuffer_Size++] = 0;
+						MC.DataToSend_TempBuffer[MC.DataToSend_TempBuffer_Size++] = 0;   
+
+						MC.DataToSend_Ptr = MC.DataToSend_TempBuffer;
+						MC.DataToSend_Size = MC.DataToSend_TempBuffer_Size;
+
+						if( MC.EndpointStates[0] != EUsbEndpointState_Stall )
+						{
+							MC.DataToSend_Size_Host = USB_Word_GetValue(SetupPacket.Length);
+							MC.DataToSend_CurrentOffset = 0;
+							MC.EndpointStates[0] = EUsbEndpointState_Transmit;	
+							USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SOPRDY);
+						}
+					}
+					break;				  
+					case EUsbPacket_Setup_Request_SetIdle:
+					{
+						if ( USB_Word_IsNotEqual(SetupPacket.Length, 0x00, 0x00 ) ||
+							 (SetupPacket.Index.MostSignificantByte != 0x00) ||
+							 (SetupPacket.Index.LeastSignificantByte != 0x00 && SetupPacket.Index.LeastSignificantByte != 0x01) ||							 
+							 (SetupPacket.Value.LeastSignificantByte != 0x00 && SetupPacket.Value.LeastSignificantByte != 0x01) ||
+						     Setup_RequestType_Direction != EUsbPacket_Setup_RequestType_Dir_Out ||
+							 Setup_RequestType_Recipient != EUsbPacket_Setup_RequestType_Recipient_Interface ) 
+						{
+							
+							USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SDSTL);
+							MC.EndpointStates[0] = EUsbEndpointState_Stall;
+						}	
+						
+						if( MC.EndpointStates[0] != EUsbEndpointState_Stall )
+						{
+							SetupPacket.Index.LeastSignificantByte; // Interface
+							SetupPacket.Value.LeastSignificantByte; // Report Id or 0x00 for all reports
+							SetupPacket.Value.MostSignificantByte; // Duration in units of 4ms
+
+							USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SOPRDY | USB0ADR_E0CSR_DATAEND);
+						}
+					}
+					break;
 					case EUsbPacket_Setup_Request_SetReport:			  
 					case EUsbPacket_Setup_Request_GetIdle:				  
-					case EUsbPacket_Setup_Request_SetIdle:				  
 					case EUsbPacket_Setup_Request_GetProtocol:	
-					case EUsbPacket_Setup_Request_SetProtocol:			  
+					case EUsbPacket_Setup_Request_SetProtocol:	
 					bob++;
-					break;
-					
+										
 					default:
 					USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SDSTL);
 					MC.EndpointStates[0] = EUsbEndpointState_Stall;							
