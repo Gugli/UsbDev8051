@@ -28,6 +28,8 @@ typedef enum
 	#define MUsb_Endpoint0_PacketSize 0x08
 #endif
 
+#define MUsb_Endpoint1_PacketSize 10
+
 typedef enum 
 {
 	EStringDesc_None              = 0x00,
@@ -209,7 +211,7 @@ SEG_CODE SUsbDescriptor_Configuration1 UsbDescriptor_Configuration =
 		},	
 		0x81, // Endpoint Address (Number + Direction)
 		EUsbEndpoint_Attributes_Interrupt, // bmAttributes
-		MUsbWord_Word( 10 ), // MaxPacketSize
+		MUsbWord_Word( MUsb_Endpoint1_PacketSize ), // MaxPacketSize
 		10    // bInterval in ms
 	}
 };           
@@ -584,26 +586,7 @@ void Usb_ISR_HandleEvent(SUsbEvent* _Event)
 			{
 				// HID class-specific requests
 				switch (SetupPacket.Request) 
-				{
-					case EUsbPacket_Setup_Request_GetReport:			  
-					{
-						MC.DataToSend_TempBuffer_Size = 0;
-						MC.DataToSend_TempBuffer[MC.DataToSend_TempBuffer_Size++] = 0;
-						MC.DataToSend_TempBuffer[MC.DataToSend_TempBuffer_Size++] = 0;
-						MC.DataToSend_TempBuffer[MC.DataToSend_TempBuffer_Size++] = 0;   
-
-						MC.DataToSend_Ptr = MC.DataToSend_TempBuffer;
-						MC.DataToSend_Size = MC.DataToSend_TempBuffer_Size;
-
-						if( MC.EndpointStates[0] != EUsbEndpointState_Stall )
-						{
-							MC.DataToSend_Size_Host = USB_Word_GetValue(SetupPacket.Length);
-							MC.DataToSend_CurrentOffset = 0;
-							MC.EndpointStates[0] = EUsbEndpointState_Transmit;	
-							USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SOPRDY);
-						}
-					}
-					break;				  
+				{			  				  
 					case EUsbPacket_Setup_Request_SetIdle:
 					{
 						if ( USB_Word_IsNotEqual(SetupPacket.Length, 0x00, 0x00 ) ||
@@ -628,6 +611,7 @@ void Usb_ISR_HandleEvent(SUsbEvent* _Event)
 						}
 					}
 					break;
+					case EUsbPacket_Setup_Request_GetReport:
 					case EUsbPacket_Setup_Request_SetReport:			  
 					case EUsbPacket_Setup_Request_GetIdle:				  
 					case EUsbPacket_Setup_Request_GetProtocol:	
@@ -835,11 +819,28 @@ void main (void)
 	IE = (IE | 0x80); // global interrupts enable 
 	while (1)
 	{
-		// IE = (IE & (~0x80)) ; // Disable interrupts
-		// if (properly set up)
-		//RSTSRC |= RSTSRC_USBRSF; // Enables Usb as a reset source. Will reset immediately if USB is not connected
+		IE = (IE & (~0x80)) ; // Disable interrupts
+
+		//if (MC.DeviceState == EUsbDeviceState_FullyConfigured)
+		//	RSTSRC |= RSTSRC_USBRSF; // Enables Usb as a reset source. Will reset immediately if USB is not connected
 		
-		// IE |= 0x80 ; // global interrupts enable 
+		// Send packet		
+		if ( MC.EndpointStates[1] != EUsbEndpointState_Idle )
+		{
+			MC.DataToSend_TempBuffer_Size = 0;
+			MC.DataToSend_TempBuffer[MC.DataToSend_TempBuffer_Size++] = 0;
+			MC.DataToSend_TempBuffer[MC.DataToSend_TempBuffer_Size++] = 2;
+			MC.DataToSend_TempBuffer[MC.DataToSend_TempBuffer_Size++] = 0;   
+
+			MC.DataToSend_Ptr = MC.DataToSend_TempBuffer;
+			MC.DataToSend_Size = MC.DataToSend_TempBuffer_Size;
+			MC.DataToSend_Size_Host = MUsb_Endpoint1_PacketSize;
+			MC.DataToSend_CurrentOffset = 0;
+			MC.EndpointStates[1] = EUsbEndpointState_Transmit;	
+		}
+
+
+		IE |= 0x80 ; // global interrupts enable 
 		
 		// blink leds, to show when running
 		P2 = (FrameCyclicCounterHigh % 0x0008 < 0x0004) ? 0x00 : 0x04;
