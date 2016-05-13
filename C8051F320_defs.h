@@ -457,6 +457,17 @@ SBIT (SPIEN, SFR_SPI0CN, 0);           // SPI0 SPI enable
 #define  USB0DAT_OUT1IE_EP2        0x04
 #define  USB0DAT_OUT1IE_EP1        0x02
 
+// USB0ADR_IN1INT
+#define  USB0DAT_IN1INT_EP3        0x08
+#define  USB0DAT_IN1INT_EP2        0x04
+#define  USB0DAT_IN1INT_EP1        0x02
+#define  USB0DAT_IN1INT_EP0        0x01
+
+// USB0ADR_OUT1INT
+#define  USB0DAT_OUT1INT_EP3       0x08
+#define  USB0DAT_OUT1INT_EP2       0x04
+#define  USB0DAT_OUT1INT_EP1       0x02
+
 // USB0ADR_CMIE
 #define  USB0DAT_CMIE_SOFE         0x08 // Start of frame Interrupt enabled
 #define  USB0DAT_CMIE_RSTINTE      0x04 // Reset Interrupt enabled
@@ -486,7 +497,8 @@ SBIT (SPIEN, SFR_SPI0CN, 0);           // SPI0 SPI enable
 // USB0ADR_EINCSRH
 #define  USB0ADR_EINCSRH_DBIEN      0x80
 #define  USB0ADR_EINCSRH_ISO        0x40
-#define  USB0ADR_EINCSRH_DIRSEL     0x20
+#define  USB0ADR_EINCSRH_DIRSEL_In  0x20
+#define  USB0ADR_EINCSRH_DIRSEL_Out 0x20
 #define  USB0ADR_EINCSRH_FCDT       0x08
 #define  USB0ADR_EINCSRH_SPLIT      0x04
 

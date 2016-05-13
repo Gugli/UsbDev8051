@@ -215,6 +215,17 @@ typedef enum
 
 } EUsbEndpoint_Attributes;
 
+typedef enum
+{
+	EUsbEndpoint_Address_EP1 = 0x01,
+	EUsbEndpoint_Address_EP2 = 0x02,
+	EUsbEndpoint_Address_EP3 = 0x03,
+
+	EUsbEndpoint_Address_In  = 0x80,
+	EUsbEndpoint_Address_Out = 0x00,
+
+} EUsbEndpoint_Address;
+
 
 //////////////////////////////////////////////////
 //////////////////////////////////////////////////
@@ -234,8 +245,8 @@ typedef enum
 
 #define USB_WriteRegister( __UsbAddress, __Value) do { \
 	while (USB0ADR & USB0ADR_BUSY);                    \
-	USB0ADR = __UsbAddress;          				   \
-    USB0DAT = __Value;                                 \
+	USB0ADR = (__UsbAddress);          				   \
+    USB0DAT = (__Value);                               \
 } while(0)                 
 
 void USB_ReadEndpointFifo (U8 _UsbAddress, U8* _Data, U8 _Length);
