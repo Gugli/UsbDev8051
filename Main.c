@@ -185,8 +185,10 @@ SEG_CODE SUsbDescriptor_Configuration1 UsbDescriptor_Configuration =
 		0x00,  // bAlternateSetting
 		0x01,  // bNumEndpoints
 		EUsbInterface_Class_HID, 
-		EUsbInterface_SubClass_HID_NoBootInterface,		//EUsbInterface_SubClass_HID_BootInterface,
-		EUsbInterface_Protocol_HID_NoBootInterface,		//EUsbInterface_Protocol_HID_BootInterface_Mouse, 
+		EUsbInterface_SubClass_HID_NoBootInterface,		
+		//EUsbInterface_SubClass_HID_BootInterface,
+		EUsbInterface_Protocol_HID_NoBootInterface,	
+		//EUsbInterface_Protocol_HID_BootInterface_Mouse, 
 		EStringDesc_Interface,
 	},
 
@@ -292,12 +294,11 @@ typedef enum
 	EUsbEventType_None                              = 0x00, 
 	EUsbEventType_Resume                            = 0x01, 
 	EUsbEventType_Suspend                           = 0x02, 
-	EUsbEventType_SetupEnd                          = 0x03, 
 	EUsbEventType_Reset                             = 0x04, 
 	EUsbEventType_Stall                             = 0x05, 
 	EUsbEventType_EP0_In_Before                     = 0x06, 
-	EUsbEventType_EP0_In_SetupEnd                   = 0x07, 
-	EUsbEventType_EP0_In_OutgoingPacketTransmitted  = 0x08, 
+	EUsbEventType_EP0_In_SetupEnd                   = 0x07,
+	EUsbEventType_EP0_In_StallHasBeenSent			= 0x08,  
 	EUsbEventType_EP0_In_IncomingPacketRecieved     = 0x09, 
 	EUsbEventType_EP0_In_After                      = 0x0a,
 	
@@ -307,32 +308,27 @@ typedef enum
 
 typedef struct 
 {
-	//EUsbEventType Type;
 	SUsbPacket_Setup Packet;
 
 } SDbg_Event;
 
-#define Dbg_EventLog_MaxSize 50
+#define Dbg_EventLog_MaxSize 20
 
 SEG_FAR volatile SDbg_Event  Dbg_EventLog[Dbg_EventLog_MaxSize];
-SEG_FAR volatile U8          Dbg_EventLog_Size = 0;
+SEG_FAR volatile U8          Dbg_EventLog_Size;
+SEG_FAR volatile U8          Dbg_PacketsSent;
 
 void Usb_ISR_HandleEvent(EUsbEvent _Event)
 {	
 	U8 ControlRegister, NewControlRegister;
+	U8 DataCount;
 	SUsbPacket_Setup SetupPacket;
 	U8 SendOrRecieveIsFinished;
 	U8 Setup_RequestType_Type, Setup_RequestType_Direction, Setup_RequestType_Recipient;
 	U8 bob;
 	U16 DataToSend_ActualSize;
 
-	/*/
-	Dbg_EventLog[Dbg_EventLog_Size%Dbg_EventLog_MaxSize].Type  = _Event;
-	Dbg_EventLog_Size++;
-	if(Dbg_EventLog_Size>=Dbg_EventLog_MaxSize) {
-		bob++;
-	}
-	//*/
+
 
 	switch( _Event )
 	{
@@ -344,15 +340,15 @@ void Usb_ISR_HandleEvent(EUsbEvent _Event)
 		// OSCICN |= OSCICN_SUSPEND;
 		break;
 		
-		case EUsbEventType_SetupEnd:	
-		USB_WriteRegister (USB0ADR_E0CSR, USB0ADR_E0CSR_DATAEND);
-		USB_WriteRegister (USB0ADR_E0CSR, USB0ADR_E0CSR_SSUEND);
-		MC.EndpointStates[0] = EUsbEndpointState_Idle;
-		break;
-		
 		case EUsbEventType_Reset:
 		USB_WriteRegister( USB0ADR_POWER, USB0DAT_POWER_SUSEN); // Activate transciever and enable suspend detection
 		MC_SetDefault(&MC);
+		break;
+		
+		case EUsbEventType_EP0_In_SetupEnd:	
+		USB_WriteRegister (USB0ADR_E0CSR, USB0ADR_E0CSR_DATAEND);
+		USB_WriteRegister (USB0ADR_E0CSR, USB0ADR_E0CSR_SSUEND);
+		MC.EndpointStates[0] = EUsbEndpointState_Idle;
 		break;
 		
 		case EUsbEventType_EP0_In_Before:
@@ -361,16 +357,24 @@ void Usb_ISR_HandleEvent(EUsbEvent _Event)
 			USB_WriteRegister (USB0ADR_FADDR, MC.Usb_FADDR | USB0ADR_FADDR_BUSY );
 			MC.EndpointStates[0] = EUsbEndpointState_Idle;
 		} 
-		else if (MC.EndpointStates[0] == EUsbEndpointState_Stall )
-		{
-			USB_WriteRegister (USB0ADR_E0CSR, 0);
-			MC.EndpointStates[0] = EUsbEndpointState_Idle;
-		}
+		break;
+
+		case EUsbEventType_EP0_In_StallHasBeenSent:
+		USB_WriteRegister( USB0ADR_INDEX, 0);  // Select Endpoint Zero
+		USB_WriteRegister (USB0ADR_E0CSR, 0);
+		MC.EndpointStates[0] = EUsbEndpointState_Idle;
 		break;
 		
 		case EUsbEventType_EP0_In_IncomingPacketRecieved:
 		if (MC.EndpointStates[0] == EUsbEndpointState_Idle)
 		{
+			USB_WriteRegister( USB0ADR_INDEX, 0);  // Select Endpoint Zero
+
+			USB_ReadRegister(DataCount, USB0ADR_E0CNT);  // Read the control register 
+			if(DataCount < sizeof(SetupPacket))
+			{
+				bob++;
+			}
 			USB_ReadEndpointFifo(USB0ADR_FIFO_EP0, (U8*)&SetupPacket, sizeof(SetupPacket) );
 			
 			Setup_RequestType_Type		= (SetupPacket.RequestType & EUsbPacket_Setup_RequestType_TypeMask);
@@ -378,12 +382,22 @@ void Usb_ISR_HandleEvent(EUsbEvent _Event)
 			Setup_RequestType_Recipient = (SetupPacket.RequestType & EUsbPacket_Setup_RequestType_RecipientMask);
 
 			//*/
-			Dbg_EventLog[Dbg_EventLog_Size%Dbg_EventLog_MaxSize].Packet  = SetupPacket;
+			Dbg_EventLog[Dbg_EventLog_Size].Packet.RequestType  = SetupPacket.RequestType;
+			Dbg_EventLog[Dbg_EventLog_Size].Packet.Request  = SetupPacket.Request;
+			Dbg_EventLog[Dbg_EventLog_Size].Packet.Value.LeastSignificantByte  = SetupPacket.Value.LeastSignificantByte;
+			Dbg_EventLog[Dbg_EventLog_Size].Packet.Value.MostSignificantByte  = SetupPacket.Value.MostSignificantByte;
+			Dbg_EventLog[Dbg_EventLog_Size].Packet.Index.LeastSignificantByte  = SetupPacket.Index.LeastSignificantByte;
+			Dbg_EventLog[Dbg_EventLog_Size].Packet.Index.MostSignificantByte  = SetupPacket.Index.MostSignificantByte;
+			Dbg_EventLog[Dbg_EventLog_Size].Packet.Length.LeastSignificantByte  = SetupPacket.Length.LeastSignificantByte;
+			Dbg_EventLog[Dbg_EventLog_Size].Packet.Length.MostSignificantByte  = SetupPacket.Length.MostSignificantByte;
 			Dbg_EventLog_Size++;
 			if(Dbg_EventLog_Size>=Dbg_EventLog_MaxSize) {
-				bob++;
+				Dbg_EventLog_Size = 0;
 			}
 			//*/
+	if(Dbg_PacketsSent) {
+		bob++;
+	}
 
 			if (Setup_RequestType_Type == EUsbPacket_Setup_RequestType_Type_Standard) {
 				// standard requests
@@ -494,6 +508,8 @@ void Usb_ISR_HandleEvent(EUsbEvent _Event)
 
 							case EUsbDescriptorType_Interface:
 							case EUsbDescriptorType_Endpoint:
+							case EUsbDescriptorType_HIDClass:
+							bob++;
 							default:
 							USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SDSTL);
 							MC.EndpointStates[0] = EUsbEndpointState_Stall;
@@ -524,13 +540,15 @@ void Usb_ISR_HandleEvent(EUsbEvent _Event)
 							} else {
 								// SetupPacket.Value.LeastSignificantByte == 0x01
 								MC.DeviceState = EUsbDeviceState_FullyConfigured;
-								MC.EndpointStates[0] = EUsbEndpointState_Address;
+								MC.EndpointStates[0] = EUsbEndpointState_Idle;
 								MC.EndpointStates[1] = EUsbEndpointState_Idle;
 								MC.EndpointStates[2] = EUsbEndpointState_Idle;
 								
+
 						        USB_WriteRegister (USB0ADR_INDEX, 1);   // Change index to endpoint 1
+
 						        //USB_WriteRegister (USB0ADR_EINCSRH, USB0ADR_EINCSRH_DIRSEL_In);
-								USB_WriteRegister (USB0ADR_EINCSRL, USB0ADR_EINCSRL_CLRDT);
+								USB_WriteRegister (USB0ADR_EINCSRL, 0x00);
 								USB_WriteRegister (USB0ADR_EINCSRH, USB0ADR_EINCSRH_SPLIT);
 						        USB_WriteRegister (USB0ADR_INDEX, 0);   // Set index back to endpoint 0
 
@@ -561,7 +579,7 @@ void Usb_ISR_HandleEvent(EUsbEvent _Event)
 				{			  				  
 					case EUsbPacket_Setup_Request_SetIdle:
 					{
-						if ( USB_Word_IsNotEqual(SetupPacket.Length, 0x00, 0x00 ) ||
+						if ( 1|| USB_Word_IsNotEqual(SetupPacket.Length, 0x00, 0x00 ) ||
 							 (SetupPacket.Index.MostSignificantByte != 0x00) ||
 							 (SetupPacket.Index.LeastSignificantByte != 0x00 && SetupPacket.Index.LeastSignificantByte != 0x01) ||							 
 							 (SetupPacket.Value.LeastSignificantByte != 0x00 && SetupPacket.Value.LeastSignificantByte != 0x01) ||
@@ -575,9 +593,9 @@ void Usb_ISR_HandleEvent(EUsbEvent _Event)
 						
 						if( MC.EndpointStates[0] != EUsbEndpointState_Stall )
 						{
-							SetupPacket.Index.LeastSignificantByte; // Interface
-							SetupPacket.Value.LeastSignificantByte; // Report Id or 0x00 for all reports
-							SetupPacket.Value.MostSignificantByte; // Duration in units of 4ms
+							// SetupPacket.Index.LeastSignificantByte; // Interface
+							// SetupPacket.Value.LeastSignificantByte; // Report Id or 0x00 for all reports
+							// SetupPacket.Value.MostSignificantByte; // Duration in units of 4ms
 
 							USB_WriteRegister(USB0ADR_E0CSR, USB0ADR_E0CSR_SOPRDY | USB0ADR_E0CSR_DATAEND);
 						}
@@ -604,10 +622,8 @@ void Usb_ISR_HandleEvent(EUsbEvent _Event)
 		break;
 		
 		case EUsbEventType_EP0_In_After:
-		// Current event has been handled,
-		// check if we can start transmitting
-		case EUsbEventType_EP0_In_OutgoingPacketTransmitted:
-		
+		// Current event has been handled, or previous packet has been sent
+		// check if we can start or continue transmitting
 		if (MC.EndpointStates[0] == EUsbEndpointState_Transmit)
 		{
 			USB_WriteRegister( USB0ADR_INDEX, 0);  // Select Endpoint Zero
@@ -621,8 +637,12 @@ void Usb_ISR_HandleEvent(EUsbEvent _Event)
 			
 				NewControlRegister = USB0ADR_E0CSR_INPRDY;
 				DataToSend_ActualSize = (MC.EP0_SendQueue.Size < MC.EP0_SendQueue.Size_Host) ? MC.EP0_SendQueue.Size : MC.EP0_SendQueue.Size_Host; 
-
-				if ( MUsb_Endpoint0_PacketSize >= DataToSend_ActualSize - MC.EP0_SendQueue.CurrentOffset )
+				if ( DataToSend_ActualSize == 0) 
+				{
+					// Zero-length packet
+					SendOrRecieveIsFinished = True;	
+				}
+				else if ( MUsb_Endpoint0_PacketSize >= DataToSend_ActualSize - MC.EP0_SendQueue.CurrentOffset )
 				{
 					USB_WriteEndpointFifo(USB0ADR_FIFO_EP0, MC.EP0_SendQueue.Ptr + MC.EP0_SendQueue.CurrentOffset, DataToSend_ActualSize - MC.EP0_SendQueue.CurrentOffset );  
 					MC.EP0_SendQueue.CurrentOffset = DataToSend_ActualSize;	  
@@ -704,27 +724,33 @@ INTERRUPT(Usb_ISR, INTERRUPT_USB0)
 		EventQueue[EventQueue_Size] = EUsbEventType_EP0_In_Before;
 		EventQueue_Size++;
 		
-		if (ControlRegister & USB0ADR_E0CSR_SUEND)
+		if (ControlRegister & USB0ADR_E0CSR_STSTL)
 		{
-			// Handle setup end
-			EventQueue[EventQueue_Size] = EUsbEventType_EP0_In_SetupEnd;
+			// Handle stalls
+			EventQueue[EventQueue_Size] = EUsbEventType_EP0_In_StallHasBeenSent;
 			EventQueue_Size++;
+			//Don't do anything else concerning EP0 during this call
 		}
-		if (ControlRegister & USB0ADR_E0CSR_INPRDY)
+		else
 		{
-			// the device has send a Packet to the host 
-			EventQueue[EventQueue_Size] = EUsbEventType_EP0_In_OutgoingPacketTransmitted;
-			EventQueue_Size++;
-		} 
-		if (ControlRegister & USB0ADR_E0CSR_OPRDY)		  
-		{
-			// the host has send a Packet to the device			
-			EventQueue[EventQueue_Size] = EUsbEventType_EP0_In_IncomingPacketRecieved;
-			EventQueue_Size++;
-		}
+			if (ControlRegister & USB0ADR_E0CSR_SUEND)
+			{
+				// Handle setup end
+				EventQueue[EventQueue_Size] = EUsbEventType_EP0_In_SetupEnd;
+				EventQueue_Size++;
+			}
+			if (ControlRegister & USB0ADR_E0CSR_OPRDY)		  
+			{
+				// the host has send a Packet to the device			
+				EventQueue[EventQueue_Size] = EUsbEventType_EP0_In_IncomingPacketRecieved;
+				EventQueue_Size++;
+			}
 		
-		EventQueue[EventQueue_Size] = EUsbEventType_EP0_In_After;
-		EventQueue_Size++;		
+			// maybe the device has sent a Packet to the host 
+			// should we send more ?
+			EventQueue[EventQueue_Size] = EUsbEventType_EP0_In_After;
+			EventQueue_Size++;	
+		}	
 	}
 	if (IntFlags_In & USB0DAT_IN1INT_EP1)				 
 	{	  
@@ -749,14 +775,16 @@ INTERRUPT(Usb_ISR, INTERRUPT_USB0)
 
 void main (void)
 {
-	volatile U16 I;
+	U16 I;
 	U16 FrameCyclicCounterHigh, FrameCyclicCounterLow;
 	U8 ControlRegister;
-	U8 PacketsSent;
 	
 	// Disable Watchdog timer
 	PCA0MD &= ~0x40;								 
 	
+	// Disable interrupts during setup
+	IE = 0;
+
 	// Setup clock
 	#if MIsEnabled(MUsb_HighSpeed) 
 		OSCICN = (OSCICN_IOSCEN | OSCICN_DIVBY_1);		  // Configure internal oscillator
@@ -776,6 +804,12 @@ void main (void)
 		CLKSEL	= (CLKSEL_CLKSL_INTERNAL | CLKSEL_USBCLK_INTERNALDIV2);  
 	#endif
 	
+	for(I = 0; I < sizeof(SDbg_Event)*Dbg_EventLog_MaxSize; I++ ) {
+		((U8*)Dbg_EventLog)[I] = 0xFF;
+	}
+	Dbg_EventLog_Size = 0;
+	Dbg_PacketsSent = 0;
+
 	// Setup USB
 	USB_WriteRegister(USB0ADR_POWER, USB0DAT_POWER_USBRST); // Request Reset
 	USB_WriteRegister(USB0ADR_IN1IE, USB0DAT_IN1IE_EP0 | USB0DAT_IN1IE_EP1 | USB0DAT_IN1IE_EP2); // Enable Endpoint 0-2 in interrupts
@@ -803,10 +837,7 @@ void main (void)
 	EIE1 |= 0x02; // Enable USB0 Interrupts
 	USB_WriteRegister(USB0ADR_POWER, USB0DAT_POWER_SUSEN); // Activate transciever and enable suspend detection
 	IE = (IE | 0x80); // global interrupts enable 
-	
-    for (FrameCyclicCounterHigh = 0; FrameCyclicCounterHigh < 65000; FrameCyclicCounterHigh++);      // Delay for clock multiplier to begin
-	
-	PacketsSent = 0;
+		
 	while (1)
 	{
 		IE = (IE & (~0x80)) ; // global interrupts disable
@@ -835,23 +866,26 @@ void main (void)
 			    {
 					USB_WriteRegister(USB0ADR_EINCSRL, 0x00); 
 			    }
-				MC.EP1_SendQueue.TempBuffer_Size = 0;
-				MC.EP1_SendQueue.TempBuffer[MC.EP1_SendQueue.TempBuffer_Size++] = 0;
-				MC.EP1_SendQueue.TempBuffer[MC.EP1_SendQueue.TempBuffer_Size++] = 1;
-				MC.EP1_SendQueue.TempBuffer[MC.EP1_SendQueue.TempBuffer_Size++] = 0;   
+				if(((ControlRegister & USB0ADR_EINCSRL_FIFONE) == 0x00) &&
+				   ((ControlRegister & USB0ADR_EINCSRL_INPRDY) == 0x00))
+				{
+					MC.EP1_SendQueue.TempBuffer_Size = 0;
+					MC.EP1_SendQueue.TempBuffer[MC.EP1_SendQueue.TempBuffer_Size++] = 0;
+					MC.EP1_SendQueue.TempBuffer[MC.EP1_SendQueue.TempBuffer_Size++] = 1;
+					MC.EP1_SendQueue.TempBuffer[MC.EP1_SendQueue.TempBuffer_Size++] = 0;   
 	
-				MC.EP1_SendQueue.Ptr = MC.EP1_SendQueue.TempBuffer;
-				MC.EP1_SendQueue.Size = MC.EP1_SendQueue.TempBuffer_Size;
-				MC.EP1_SendQueue.Size_Host = MUsb_Endpoint1_PacketSize;
-				MC.EP1_SendQueue.CurrentOffset = 0;
-				MC.EndpointStates[1] = EUsbEndpointState_Transmit;
+					MC.EP1_SendQueue.Ptr = MC.EP1_SendQueue.TempBuffer;
+					MC.EP1_SendQueue.Size = MC.EP1_SendQueue.TempBuffer_Size;
+					MC.EP1_SendQueue.Size_Host = MUsb_Endpoint1_PacketSize;
+					MC.EP1_SendQueue.CurrentOffset = 0;
+					MC.EndpointStates[1] = EUsbEndpointState_Transmit;
 
-				PacketsSent++;
+					Dbg_PacketsSent++;
 
-				USB_WriteEndpointFifo(USB0ADR_FIFO_EP1, MC.EP1_SendQueue.Ptr, MC.EP1_SendQueue.Size ); 
-				USB_WriteRegister(USB0ADR_EINCSRL, USB0ADR_EINCSRL_INPRDY); 				
+					USB_WriteEndpointFifo(USB0ADR_FIFO_EP1, MC.EP1_SendQueue.Ptr, MC.EP1_SendQueue.Size ); 
+					USB_WriteRegister(USB0ADR_EINCSRL, USB0ADR_EINCSRL_INPRDY ); 
+				}				
 			}
-			USB_WriteRegister( USB0ADR_INDEX, 0);  // Select Endpoint One
 		}
 //*/
 
