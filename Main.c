@@ -15,6 +15,7 @@ typedef enum
 	True = 0xFF
 } EBoolValues;
 
+
 /////////////////////////////////
 /////////////////////////////////
 // Globals
@@ -294,25 +295,6 @@ typedef struct {
 	
 } SMainContext;
 
-typedef struct 
-{
-	SUsbPacket_Setup Packet;
-
-} SDbg_Event;
-
-#define Dbg_EventLog_MaxSize 20
-
-SEG_FAR volatile SDbg_Event  Dbg_EventLog[Dbg_EventLog_MaxSize];
-SEG_FAR volatile U8          Dbg_EventLog_Size;
-SEG_FAR volatile U8          Dbg_EP1_PacketsToSend;
-SEG_FAR volatile U8          Dbg_EP2_PacketsToSend;
-SEG_FAR volatile U8          Dbg_EP1_PacketsSent;
-SEG_FAR volatile U8          Dbg_EP1_StallsSent;
-SEG_FAR volatile U8          Dbg_ResumeReceived;
-SEG_FAR volatile U8          Dbg_SuspendReceived;
-SEG_FAR volatile U8          Dbg_ResetReceived;
-SEG_FAR volatile U8          Dbg_ConditionReached;
-
 void SSendQueue_SetDefault(SSendQueue* _SendQueue) {	
 	_SendQueue->Ptr = 0x00;
 	_SendQueue->Size = 0x00;
@@ -416,22 +398,6 @@ void Usb_ISR_HandleEvent(EUsbEvent _Event)
 			Setup_RequestType_Type		= (SetupPacket.RequestType & EUsbPacket_Setup_RequestType_TypeMask);
 			Setup_RequestType_Direction = (SetupPacket.RequestType & EUsbPacket_Setup_RequestType_DirMask);
 			Setup_RequestType_Recipient = (SetupPacket.RequestType & EUsbPacket_Setup_RequestType_RecipientMask);
-
-			//*/
-			Dbg_EventLog[Dbg_EventLog_Size].Packet.RequestType  = SetupPacket.RequestType;
-			Dbg_EventLog[Dbg_EventLog_Size].Packet.Request  = SetupPacket.Request;
-			Dbg_EventLog[Dbg_EventLog_Size].Packet.Value.LeastSignificantByte  = SetupPacket.Value.LeastSignificantByte;
-			Dbg_EventLog[Dbg_EventLog_Size].Packet.Value.MostSignificantByte  = SetupPacket.Value.MostSignificantByte;
-			Dbg_EventLog[Dbg_EventLog_Size].Packet.Index.LeastSignificantByte  = SetupPacket.Index.LeastSignificantByte;
-			Dbg_EventLog[Dbg_EventLog_Size].Packet.Index.MostSignificantByte  = SetupPacket.Index.MostSignificantByte;
-			Dbg_EventLog[Dbg_EventLog_Size].Packet.Length.LeastSignificantByte  = SetupPacket.Length.LeastSignificantByte;
-			Dbg_EventLog[Dbg_EventLog_Size].Packet.Length.MostSignificantByte  = SetupPacket.Length.MostSignificantByte;
-			Dbg_EventLog_Size++;
-			if(Dbg_EventLog_Size>=Dbg_EventLog_MaxSize) {
-				Dbg_EventLog_Size = 0;
-			}
-			//*/
-
 
 			if (Setup_RequestType_Type == EUsbPacket_Setup_RequestType_Type_Standard) {
 				// standard requests
@@ -753,28 +719,21 @@ INTERRUPT(Usb_ISR, INTERRUPT_USB0)
 	USB_ReadRegister(IntFlags_In,	  USB0ADR_IN1INT);
 	USB_ReadRegister(IntFlags_Out,	  USB0ADR_OUT1INT);
 
-if(Dbg_ConditionReached) {
-Dbg_ConditionReached = False;
-}
-
 	EventQueue_Size = 0;
 	if (IntFlags_Common & USB0ADR_CMINT_RSUINT)			 
 	{
 		EventQueue[EventQueue_Size] = EUsbEventType_Resume;
 		EventQueue_Size++;
-Dbg_ResumeReceived++;
 	}
 	if (IntFlags_Common & USB0ADR_CMINT_SUSINT)			 
 	{
 		EventQueue[EventQueue_Size] = EUsbEventType_Suspend;
 		EventQueue_Size++;
-Dbg_SuspendReceived++;
 	}
 	if (IntFlags_Common & USB0ADR_CMINT_RSTINT)			 
 	{
 		EventQueue[EventQueue_Size] = EUsbEventType_Reset;
 		EventQueue_Size++;
-Dbg_ResetReceived++;
 	}
 	if (IntFlags_In & USB0DAT_IN1INT_EP0)				 
 	{					   
@@ -865,18 +824,6 @@ void main (void)
 		CLKSEL	= (CLKSEL_CLKSL_INTERNAL | CLKSEL_USBCLK_INTERNALDIV2);  
 	#endif
 	
-	for(I = 0; I < sizeof(SDbg_Event)*Dbg_EventLog_MaxSize; I++ ) {
-		((U8*)Dbg_EventLog)[I] = 0xFF;
-	}
-	Dbg_EventLog_Size = 0;
-	Dbg_EP1_PacketsToSend = 0;
-	Dbg_EP2_PacketsToSend = 0;
-	Dbg_EP1_StallsSent = 0;
-	Dbg_EP1_PacketsSent = 0;
-	Dbg_ConditionReached = False;
-	Dbg_ResumeReceived = 0;
-	Dbg_SuspendReceived = 0;
-	Dbg_ResetReceived = 0;
 	// Setup USB
 	USB_WriteRegister(USB0ADR_POWER, USB0DAT_POWER_USBRST); // Request Reset
 	USB_WriteRegister(USB0ADR_IN1IE, USB0DAT_IN1IE_EP0 | USB0DAT_IN1IE_EP1 | USB0DAT_IN1IE_EP2); // Enable Endpoint 0-2 in interrupts
@@ -938,9 +885,7 @@ void main (void)
 					MC.EndpointStates[1] = EUsbEndpointState_Transmit;
 
 					USB_WriteEndpointFifo(USB0ADR_FIFO_EP1, MC.EP1_SendQueue.Ptr, MC.EP1_SendQueue.Size );
-							
-					Dbg_EP1_PacketsToSend++;
-						 
+													 
 					NewControlRegister = (NewControlRegister | USB0ADR_EINCSRL_INPRDY);  
 				}	
 				USB_WriteRegister(USB0ADR_EINCSRL, NewControlRegister);
@@ -973,9 +918,7 @@ void main (void)
 					MC.EndpointStates[2] = EUsbEndpointState_Transmit;
 
 					USB_WriteEndpointFifo(USB0ADR_FIFO_EP2, MC.EP2_SendQueue.Ptr, MC.EP2_SendQueue.Size );
-							
-					Dbg_EP2_PacketsToSend++;
-						 
+													 
 					NewControlRegister = (NewControlRegister | USB0ADR_EINCSRL_INPRDY);  
 				}	
 				USB_WriteRegister(USB0ADR_EINCSRL, NewControlRegister);
