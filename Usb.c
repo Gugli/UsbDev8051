@@ -2,9 +2,9 @@
 
 
 
-void USB_ReadEndpointFifo (U8 _UsbAddress, U8* _Data, U8 _Length)
+void USB_ReadEndpointFifo (U8 _UsbAddress, U8* _Data, U16 _Length)
 {
-	U8 I;
+	U16 I;
 	
 	if (!_Length)
 		return;
@@ -20,19 +20,19 @@ void USB_ReadEndpointFifo (U8 _UsbAddress, U8* _Data, U8 _Length)
 	USB0ADR = 0;       
 }
 
-void USB_WriteEndpointFifo (U8 _UsbAddress, U8* _Data, U8 _Length)
+void USB_WriteEndpointFifo (U8 _UsbAddress, U8* _Data, U16 _Length)
 {
-	U8 i;
+	U16 I;
 
 	if (!_Length)
 		return;
        
 	while (USB0ADR & USB0ADR_BUSY);
 	USB0ADR = (_UsbAddress | USB0ADR_AUTORD | USB0ADR_BUSY);
-	for (i=0; i<_Length; i++)
+	for (I=0; I<_Length; I++)
 	{
 		while (USB0ADR & USB0ADR_BUSY);  
-		USB0DAT = _Data[i];
+		USB0DAT = _Data[I];
 	}
 	// clear auto read
 	USB0ADR = 0;        

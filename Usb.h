@@ -208,10 +208,10 @@ typedef enum
 
 typedef enum
 {
-	EUsbEndpoint_Attributes_Control = 0x00,
-	EUsbEndpoint_Attributes_Isochronous = 0x01,
-	EUsbEndpoint_Attributes_Bulk = 0x10,
-	EUsbEndpoint_Attributes_Interrupt = 0x11,
+	EUsbEndpoint_Attributes_Type_Control = 0x00,
+	EUsbEndpoint_Attributes_Type_Isochronous = 0x01,
+	EUsbEndpoint_Attributes_Type_Bulk = 0x02,
+	EUsbEndpoint_Attributes_Type_Interrupt = 0x03,
 
 } EUsbEndpoint_Attributes;
 
@@ -249,8 +249,8 @@ typedef enum
     USB0DAT = (__Value);                               \
 } while(0)                 
 
-void USB_ReadEndpointFifo (U8 _UsbAddress, U8* _Data, U8 _Length);
-void USB_WriteEndpointFifo (U8 _UsbAddress, U8* _Data, U8 _Length);
+void USB_ReadEndpointFifo (U8 _UsbAddress, U8* _Data, U16 _Length);
+void USB_WriteEndpointFifo (U8 _UsbAddress, U8* _Data, U16 _Length);
 
 /*
 #define USB_STRING_GET_17TH(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16, N, ...) N
