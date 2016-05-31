@@ -15,6 +15,23 @@ typedef enum
 	True = 0xFF
 } EBoolValues;
 
+/////////////////////////////////
+/////////////////////////////////
+// Config
+
+typedef enum 
+{
+	EMouseButtonsMask_LeftClick			= 0x01,
+	EMouseButtonsMask_RightClick		= 0x02,
+	EMouseButtonsMask_MiddleClick		= 0x04,
+} EMouseButtonsMask;
+typedef enum 
+{
+	EKeboardModifiersMask_LeftCtrl			= 0x01,
+	EKeboardModifiersMask_RightCtrl			= 0x02,
+	EKeboardModifiersMask_Shift				= 0x04,
+} EKeboardModifiersMask;
+
 
 /////////////////////////////////
 /////////////////////////////////
@@ -271,17 +288,26 @@ typedef enum
 
 } EUsbEndpointState;
 
-typedef struct {
-
-	U8  TempBuffer[10];   
-	U8  TempBuffer_Size;
-	
+typedef struct {	
 	U8* Ptr;	  
 	U16 Size;			// Size that the software wants to send
 	U16 Size_Host;		// Size that the host wants. If this is lower than EP0_SendQueue.Size, we will have to wait another setup packet and split
 	U16 CurrentOffset;
 
-} SSendQueue;
+} SSendQueue_EP0;
+
+typedef struct {
+
+	U8  TempBuffer[8];   
+	U8  TempBuffer_Size;
+} SSendQueue_EPX;
+
+typedef struct 
+{
+	U8 Mouse_Buttons;
+	U8 Keboard_Modifiers;
+	U8 Keboard_Keys[6];
+} SOutput;
 
 typedef struct {
 	EUsbDeviceState   DeviceState;
@@ -289,18 +315,14 @@ typedef struct {
 	
 	U8 Usb_FADDR;
 	
-	SSendQueue EP0_SendQueue; 
-	SSendQueue EP1_SendQueue; 	
-	SSendQueue EP2_SendQueue; 			  
+	SSendQueue_EP0 EP0_SendQueue; 
+	SSendQueue_EPX EPX_SendQueue; 
+	
+	SOutput  Output;
+	Bool     OutputHasChangedSinceLatestSent_EP1;			  
+	Bool     OutputHasChangedSinceLatestSent_EP2;			  
 	
 } SMainContext;
-
-void SSendQueue_SetDefault(SSendQueue* _SendQueue) {	
-	_SendQueue->Ptr = 0x00;
-	_SendQueue->Size = 0x00;
-	_SendQueue->Size_Host = 0x00;
-	_SendQueue->CurrentOffset = 0x00;	
-}
 
 void MC_SetDefault(SMainContext* _MC) {
 
@@ -312,8 +334,23 @@ void MC_SetDefault(SMainContext* _MC) {
 	
 	_MC->Usb_FADDR = 0x00;
 	
-	SSendQueue_SetDefault(&_MC->EP0_SendQueue);
-	SSendQueue_SetDefault(&_MC->EP1_SendQueue);
+	
+	_MC->EP0_SendQueue.Ptr = 0x00;
+	_MC->EP0_SendQueue.Size = 0x00;
+	_MC->EP0_SendQueue.Size_Host = 0x00;
+	_MC->EP0_SendQueue.CurrentOffset = 0x00;	
+	
+	_MC->Output.Mouse_Buttons = 0x00;
+	_MC->Output.Keboard_Modifiers = 0x00;
+	_MC->Output.Keboard_Keys[0] = 0x00;
+	_MC->Output.Keboard_Keys[1] = 0x00;
+	_MC->Output.Keboard_Keys[2] = 0x00;
+	_MC->Output.Keboard_Keys[3] = 0x00;
+	_MC->Output.Keboard_Keys[4] = 0x00;
+	_MC->Output.Keboard_Keys[5] = 0x00;
+	
+	_MC->OutputHasChangedSinceLatestSent_EP1 = False;
+	_MC->OutputHasChangedSinceLatestSent_EP2 = False;
 }
 
 SEG_NEAR volatile SMainContext MC;
@@ -860,9 +897,12 @@ void main (void)
 		IE = 0; // disable interrupts
 
 		//*
-		if(MC.DeviceState == EUsbDeviceState_FullyConfigured)
+		if(	MC.DeviceState == EUsbDeviceState_FullyConfigured &&
+			(MC.OutputHasChangedSinceLatestSent_EP1 || MC.OutputHasChangedSinceLatestSent_EP2) // Else we only send NAKs
+			)
 		{
-			if ( MC.EndpointStates[1] == EUsbEndpointState_Idle ) 
+			if ( MC.EndpointStates[1] == EUsbEndpointState_Idle &&
+			     MC.OutputHasChangedSinceLatestSent_EP1) 
 			{		
 				USB_WriteRegister( USB0ADR_INDEX, 1);  // Select Endpoint One
 				USB_ReadRegister(ControlRegister, USB0ADR_EINCSRL);  // Read the control register
@@ -873,24 +913,23 @@ void main (void)
 				   ((ControlRegister & USB0ADR_EINCSRL_FIFONE) == 0x00) &&
 				   ((ControlRegister & USB0ADR_EINCSRL_INPRDY) == 0x00))
 				{
-					MC.EP1_SendQueue.TempBuffer_Size = 0;
-					MC.EP1_SendQueue.TempBuffer[MC.EP1_SendQueue.TempBuffer_Size++] = 0;
-					MC.EP1_SendQueue.TempBuffer[MC.EP1_SendQueue.TempBuffer_Size++] = (FrameCyclicCounterLow%8 == 0) ? 1 : 0;
-					MC.EP1_SendQueue.TempBuffer[MC.EP1_SendQueue.TempBuffer_Size++] = 0;   
+					MC.EPX_SendQueue.TempBuffer_Size = 0;
+					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = MC.Output.Mouse_Buttons;
+					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = 0;
+					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = 0;   
 
-					MC.EP1_SendQueue.Ptr = MC.EP1_SendQueue.TempBuffer;
-					MC.EP1_SendQueue.Size = MC.EP1_SendQueue.TempBuffer_Size;
-					MC.EP1_SendQueue.Size_Host = MUsb_Endpoint1_PacketSize;
-					MC.EP1_SendQueue.CurrentOffset = 0;
 					MC.EndpointStates[1] = EUsbEndpointState_Transmit;
 
-					USB_WriteEndpointFifo(USB0ADR_FIFO_EP1, MC.EP1_SendQueue.Ptr, MC.EP1_SendQueue.Size );
+					USB_WriteEndpointFifo(USB0ADR_FIFO_EP1, MC.EPX_SendQueue.TempBuffer, MC.EPX_SendQueue.TempBuffer_Size );
 													 
 					NewControlRegister = (NewControlRegister | USB0ADR_EINCSRL_INPRDY);  
+
+					MC.OutputHasChangedSinceLatestSent_EP1 = False;
 				}	
 				USB_WriteRegister(USB0ADR_EINCSRL, NewControlRegister);
 			}			
-			if ( MC.EndpointStates[2] == EUsbEndpointState_Idle ) 
+			if ( MC.EndpointStates[2] == EUsbEndpointState_Idle &&
+			     MC.OutputHasChangedSinceLatestSent_EP2) 
 			{		
 				USB_WriteRegister( USB0ADR_INDEX, 2);  // Select Endpoint One
 				USB_ReadRegister(ControlRegister, USB0ADR_EINCSRL);  // Read the control register
@@ -901,25 +940,22 @@ void main (void)
 				   ((ControlRegister & USB0ADR_EINCSRL_FIFONE) == 0x00) &&
 				   ((ControlRegister & USB0ADR_EINCSRL_INPRDY) == 0x00))
 				{
-					MC.EP2_SendQueue.TempBuffer_Size = 0;
-					MC.EP2_SendQueue.TempBuffer[MC.EP2_SendQueue.TempBuffer_Size++] = 0x00;
-					MC.EP2_SendQueue.TempBuffer[MC.EP2_SendQueue.TempBuffer_Size++] = 0xff;
-					MC.EP2_SendQueue.TempBuffer[MC.EP2_SendQueue.TempBuffer_Size++] = 0; 
-					MC.EP2_SendQueue.TempBuffer[MC.EP2_SendQueue.TempBuffer_Size++] = 0; 
-					MC.EP2_SendQueue.TempBuffer[MC.EP2_SendQueue.TempBuffer_Size++] = 0x12; 
-					MC.EP2_SendQueue.TempBuffer[MC.EP2_SendQueue.TempBuffer_Size++] = 0; 
-					MC.EP2_SendQueue.TempBuffer[MC.EP2_SendQueue.TempBuffer_Size++] = 0; 
-					MC.EP2_SendQueue.TempBuffer[MC.EP2_SendQueue.TempBuffer_Size++] = 0;   
+					MC.EPX_SendQueue.TempBuffer_Size = 0;
+					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = MC.Output.Keboard_Modifiers;
+					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = 0xff;
+					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = MC.Output.Keboard_Keys[0]; 
+					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = MC.Output.Keboard_Keys[1]; 
+					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = MC.Output.Keboard_Keys[2]; 
+					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = MC.Output.Keboard_Keys[3]; 
+					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = MC.Output.Keboard_Keys[4]; 
+					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = MC.Output.Keboard_Keys[5];   
 
-					MC.EP2_SendQueue.Ptr = MC.EP2_SendQueue.TempBuffer;
-					MC.EP2_SendQueue.Size = MC.EP2_SendQueue.TempBuffer_Size;
-					MC.EP2_SendQueue.Size_Host = MUsb_Endpoint2_PacketSize;
-					MC.EP2_SendQueue.CurrentOffset = 0;
 					MC.EndpointStates[2] = EUsbEndpointState_Transmit;
 
-					USB_WriteEndpointFifo(USB0ADR_FIFO_EP2, MC.EP2_SendQueue.Ptr, MC.EP2_SendQueue.Size );
+					USB_WriteEndpointFifo(USB0ADR_FIFO_EP2, MC.EPX_SendQueue.TempBuffer, MC.EPX_SendQueue.TempBuffer_Size );
 													 
 					NewControlRegister = (NewControlRegister | USB0ADR_EINCSRL_INPRDY);  
+					MC.OutputHasChangedSinceLatestSent_EP2 = False;
 				}	
 				USB_WriteRegister(USB0ADR_EINCSRL, NewControlRegister);
 			}
