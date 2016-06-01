@@ -21,17 +21,62 @@ typedef enum
 
 typedef enum 
 {
+	EMouseButtonsMask_None				= 0x00,
 	EMouseButtonsMask_LeftClick			= 0x01,
 	EMouseButtonsMask_RightClick		= 0x02,
 	EMouseButtonsMask_MiddleClick		= 0x04,
 } EMouseButtonsMask;
+
 typedef enum 
 {
+	EKeboardModifiersMask_None				= 0x00,
 	EKeboardModifiersMask_LeftCtrl			= 0x01,
 	EKeboardModifiersMask_RightCtrl			= 0x02,
 	EKeboardModifiersMask_Shift				= 0x04,
 } EKeboardModifiersMask;
 
+typedef enum 
+{
+	EConfigActions_MouseButtons			= 0x01,
+	EConfigActions_KeyboardModifier		= 0x02,
+	EConfigActions_Shift				= 0x04,
+} EConfigActions;
+
+
+typedef struct 
+{
+	U8 Mouse_Buttons;
+	U8 Keboard_Modifiers;
+	U8 Keboard_Key;
+} SOutput;
+
+typedef struct {
+	SOutput Action;
+} SConfig_Switch;
+
+typedef struct {
+	SOutput Action;
+	U8 Threshold;
+
+} SConfig_ADC;
+
+typedef struct {
+	SConfig_Switch Switches[2];
+	SConfig_ADC ADCs[2];
+} SConfig;
+
+SEG_CODE SConfig Config =
+{
+	{
+		{{EMouseButtonsMask_None, EKeboardModifiersMask_None, 0x12}},
+		{{EMouseButtonsMask_None, EKeboardModifiersMask_None, 0x13}},
+	},
+	{
+		{{EMouseButtonsMask_None, EKeboardModifiersMask_None, 0x12}, 0x7F},
+		{{EMouseButtonsMask_None, EKeboardModifiersMask_None, 0x13}, 0x7F},
+	}
+}
+;
 
 /////////////////////////////////
 /////////////////////////////////
@@ -302,13 +347,6 @@ typedef struct {
 	U8  TempBuffer_Size;
 } SSendQueue_EPX;
 
-typedef struct 
-{
-	U8 Mouse_Buttons;
-	U8 Keboard_Modifiers;
-	U8 Keboard_Keys[6];
-} SOutput;
-
 typedef struct {
 	EUsbDeviceState   DeviceState;
 	EUsbEndpointState EndpointStates[3];
@@ -318,9 +356,12 @@ typedef struct {
 	SSendQueue_EP0 EP0_SendQueue; 
 	SSendQueue_EPX EPX_SendQueue; 
 	
-	SOutput  Output;
+	Bool	 Output_Switches[2];
+	Bool 	 Output_ADCs[2];
+	
 	Bool     OutputHasChangedSinceLatestSent_EP1;			  
-	Bool     OutputHasChangedSinceLatestSent_EP2;			  
+	Bool     OutputHasChangedSinceLatestSent_EP2;
+				  
 	
 } SMainContext;
 
@@ -340,17 +381,11 @@ void MC_SetDefault(SMainContext* _MC) {
 	_MC->EP0_SendQueue.Size_Host = 0x00;
 	_MC->EP0_SendQueue.CurrentOffset = 0x00;	
 	
-	_MC->Output.Mouse_Buttons = 0x00;
-	_MC->Output.Keboard_Modifiers = 0x00;
-	_MC->Output.Keboard_Keys[0] = 0x00;
-	_MC->Output.Keboard_Keys[1] = 0x00;
-	_MC->Output.Keboard_Keys[2] = 0x00;
-	_MC->Output.Keboard_Keys[3] = 0x00;
-	_MC->Output.Keboard_Keys[4] = 0x00;
-	_MC->Output.Keboard_Keys[5] = 0x00;
-	
+	_MC->Output_Switches[0] = False;
+	_MC->Output_Switches[1] = False;
+
 	_MC->OutputHasChangedSinceLatestSent_EP1 = False;
-	_MC->OutputHasChangedSinceLatestSent_EP2 = False;
+	_MC->OutputHasChangedSinceLatestSent_EP2 = False;	
 }
 
 SEG_NEAR volatile SMainContext MC;
@@ -825,6 +860,18 @@ INTERRUPT(Usb_ISR, INTERRUPT_USB0)
 	}	 
 }
 
+
+INTERRUPT(Timer2_ISR, INTERRUPT_TIMER2)	
+{
+volatile U8 bob;
+
+	// Values are inverted
+	MC.Output_Switches[0] = (!(P2 & P2_SW1)) ? True : False;
+	MC.Output_Switches[1] = (!(P2 & P2_SW2)) ? True : False;
+	
+	TMR2CN &= (~TMR2CN_TF2H);
+}
+
 /////////////////////////////////
 /////////////////////////////////
 // MAIN
@@ -834,8 +881,14 @@ void main (void)
 	U16 I;
 	U16 FrameCyclicCounterHigh, FrameCyclicCounterLow;
 	U8 ControlRegister, NewControlRegister;
-	U8 PreviousEAState;
-	
+
+	U8 CurrentOutput_Mouse_Buttons;
+	U8 CurrentOutput_Keboard_Modifiers;
+	U8 CurrentOutput_Keys[4];
+	U8 PreviousOutput_Mouse_Buttons;
+	U8 PreviousOutput_Keboard_Modifiers;
+	U8 PreviousOutput_Keys[4];
+
 	// Disable Watchdog timer
 	PCA0MD &= ~0x40;								 
 	
@@ -873,30 +926,94 @@ void main (void)
 	#endif
 	USB_WriteRegister(USB0ADR_CLKREC, USB0DAT_CLKREC_CRE | USB0DAT_CLKREC_MUSTWRITE); // Enable clock recovery
 		
+	// Timer2 setup
+	TMR2CN  = 0x00;                     // Stop Timer2; Clear TF2;
+	CKCON  &= ~0xF0;                    // Timer2 clocked based on T2XCLK;
+	TMR2RL  = 0x00;                     // Initialize reload value
+	TMR2    = 0xFFFF;                   // Set to reload immediately
+    TMR2CN  |= TMR2CN_TR2;              // Start Timer2
+
+
+
+
+    //P0MDIN   = 0xFF;                    // Port 1 pin 7 set as analog input
+    //P0MDOUT |= 0x0F;                    // Port 0 pins 0-3 set high impedence
+
+    //P1MDIN   = 0x7F;                    // Port 1 pin 7 set as analog input
+    //P1MDOUT |= 0x0F;                    // Port 1 pins 0-3 set high impedence
+    //P1SKIP   = 0x80;                    // Port 1 pin 7 skipped by crossbar
+
+    P2MDIN   = 0xFF;                    // Port 2 : No analog inputs 
+    P2MDOUT  = 0x0C;                    // Port 2 : pins 2-3 push-pull output (to Enable LED)
+    P2SKIP   = 0x00;                    // Port 2 : no pins skipped by crossbar
+
 	XBR0 = 0x00;						// No digital peripherals selected
 	XBR1 = 0x40;						// Enable crossbar and weak pull-ups
-	P2MDOUT |= 0x04;					// Enable LED as a push-pull output
-	RSTSRC = 0;							// Disable all reset sources
+
+	//RSTSRC = 0;							// Disable all reset sources
 	
 	MC_SetDefault(&MC);
 	FrameCyclicCounterLow = 0;
 	FrameCyclicCounterHigh = 0;
 	
-	EIE1 |= 0x02; // Enable USB0 Interrupts
+	EIE1 = EIE1_EUSB0; // Enable USB0 Interrupts
 	USB_WriteRegister(USB0ADR_POWER, USB0DAT_POWER_SUSEN); // Activate transciever and enable suspend detection
-	IE = (IE | 0x80); // global interrupts enable 		
+	
+
+	#define IE_EnabledValue (IE_EA | IE_ET2) // Global + Timer2
+	IE = IE_EnabledValue; // enable interrupts 
+
+	// Put garbage values to ensure at least one packet is sent after init
+	PreviousOutput_Mouse_Buttons = 0xFF;
+	PreviousOutput_Keboard_Modifiers = 0xFF;
+	PreviousOutput_Keys[0] = 0xFF;
+	PreviousOutput_Keys[1] = 0xFF;
+	PreviousOutput_Keys[2] = 0xFF;
+	PreviousOutput_Keys[3] = 0xFF;
 
 	while (1)
 	{
 		// blink leds, to show when running
-		P2 = (FrameCyclicCounterHigh % 0x0004 < 0x0002) ? 0x00 : 0x04;
+		//P2 = (P2 & 0xF3) | ( (FrameCyclicCounterHigh % 0x0004 < 0x0002) ? 0x08 : 0x04 );
 		FrameCyclicCounterLow++;
 		if(!FrameCyclicCounterLow) FrameCyclicCounterHigh++;
 
-		PreviousEAState = IE;
+		CurrentOutput_Mouse_Buttons = 0x00;
+		CurrentOutput_Keboard_Modifiers = 0x00;
+		CurrentOutput_Keys[0] = 0x00;
+		CurrentOutput_Keys[1] = 0x00;
+		CurrentOutput_Keys[2] = 0x00;
+		CurrentOutput_Keys[3] = 0x00;
+
 		IE = 0; // disable interrupts
 
-		//*
+		if(MC.Output_Switches[0])
+		{
+			CurrentOutput_Mouse_Buttons     |= Config.Switches[0].Action.Mouse_Buttons;
+			CurrentOutput_Keboard_Modifiers |= Config.Switches[0].Action.Keboard_Modifiers;
+			CurrentOutput_Keys[0]            = Config.Switches[0].Action.Keboard_Key;
+		}
+
+		if(MC.Output_Switches[1])
+		{
+			CurrentOutput_Mouse_Buttons     |= Config.Switches[1].Action.Mouse_Buttons;
+			CurrentOutput_Keboard_Modifiers |= Config.Switches[1].Action.Keboard_Modifiers;
+			CurrentOutput_Keys[1]            = Config.Switches[1].Action.Keboard_Key;
+		}
+
+
+		if(PreviousOutput_Mouse_Buttons != CurrentOutput_Mouse_Buttons) {
+			MC.OutputHasChangedSinceLatestSent_EP1 = True;
+		}
+		if( (PreviousOutput_Keboard_Modifiers != CurrentOutput_Keboard_Modifiers) || 
+			(PreviousOutput_Keys[0] != CurrentOutput_Keys[0]) || 
+			(PreviousOutput_Keys[1] != CurrentOutput_Keys[1]) || 
+			(PreviousOutput_Keys[2] != CurrentOutput_Keys[2]) || 
+			(PreviousOutput_Keys[3] != CurrentOutput_Keys[3])) 
+		{
+			MC.OutputHasChangedSinceLatestSent_EP2 = True;
+		}
+
 		if(	MC.DeviceState == EUsbDeviceState_FullyConfigured &&
 			(MC.OutputHasChangedSinceLatestSent_EP1 || MC.OutputHasChangedSinceLatestSent_EP2) // Else we only send NAKs
 			)
@@ -914,7 +1031,7 @@ void main (void)
 				   ((ControlRegister & USB0ADR_EINCSRL_INPRDY) == 0x00))
 				{
 					MC.EPX_SendQueue.TempBuffer_Size = 0;
-					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = MC.Output.Mouse_Buttons;
+					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = CurrentOutput_Mouse_Buttons;
 					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = 0;
 					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = 0;   
 
@@ -923,7 +1040,6 @@ void main (void)
 					USB_WriteEndpointFifo(USB0ADR_FIFO_EP1, MC.EPX_SendQueue.TempBuffer, MC.EPX_SendQueue.TempBuffer_Size );
 													 
 					NewControlRegister = (NewControlRegister | USB0ADR_EINCSRL_INPRDY);  
-
 					MC.OutputHasChangedSinceLatestSent_EP1 = False;
 				}	
 				USB_WriteRegister(USB0ADR_EINCSRL, NewControlRegister);
@@ -941,14 +1057,14 @@ void main (void)
 				   ((ControlRegister & USB0ADR_EINCSRL_INPRDY) == 0x00))
 				{
 					MC.EPX_SendQueue.TempBuffer_Size = 0;
-					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = MC.Output.Keboard_Modifiers;
+					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = CurrentOutput_Keboard_Modifiers;
 					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = 0xff;
-					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = MC.Output.Keboard_Keys[0]; 
-					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = MC.Output.Keboard_Keys[1]; 
-					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = MC.Output.Keboard_Keys[2]; 
-					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = MC.Output.Keboard_Keys[3]; 
-					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = MC.Output.Keboard_Keys[4]; 
-					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = MC.Output.Keboard_Keys[5];   
+					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = CurrentOutput_Keys[0]; 
+					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = CurrentOutput_Keys[1]; 
+					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = CurrentOutput_Keys[2]; 
+					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = CurrentOutput_Keys[3]; 
+					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = 0x00; 
+					MC.EPX_SendQueue.TempBuffer[MC.EPX_SendQueue.TempBuffer_Size++] = 0x00;   
 
 					MC.EndpointStates[2] = EUsbEndpointState_Transmit;
 
@@ -961,10 +1077,14 @@ void main (void)
 			}
 		}
 
+		IE = IE_EnabledValue; // global interrupts enable 	
 		
-//*/
-
-		IE = PreviousEAState; // global interrupts enable 		
+		PreviousOutput_Mouse_Buttons      = CurrentOutput_Mouse_Buttons;
+		PreviousOutput_Keboard_Modifiers  = CurrentOutput_Keboard_Modifiers;
+		PreviousOutput_Keys[0]            = CurrentOutput_Keys[0];
+		PreviousOutput_Keys[1]            = CurrentOutput_Keys[1];
+		PreviousOutput_Keys[2]            = CurrentOutput_Keys[2];
+		PreviousOutput_Keys[3]            = CurrentOutput_Keys[3];	
 	}
 }
 		

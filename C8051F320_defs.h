@@ -300,6 +300,41 @@ SBIT (SPIEN, SFR_SPI0CN, 0);           // SPI0 SPI enable
 */
 
 //-----------------------------------------------------------------------------
+// Port Values
+//-----------------------------------------------------------------------------
+
+// P2
+#define P2_SW1 0x01                       // These are the port2 bits for Sw1
+#define P2_SW2 0x02                       // and Sw2 on the development board
+
+//-----------------------------------------------------------------------------
+// Interrupt Values
+//-----------------------------------------------------------------------------
+
+// IE
+#define IE_EA         0x80  		// Global enable
+#define IE_ESPI0      0x40  		// Enable Serial Peripheral Interface (SPI0) Interrupt
+#define IE_ET2	      0x20  		// Enable Timer 2 Interrupt
+#define IE_ES0	      0x10  		// Enable UART0 Interrupt
+#define IE_ET1        0x08   		// Enable Timer 1 Interrupt
+#define IE_EX1        0x04  		// Enable External 1 Interrupt
+#define IE_ET0        0x02  		// Enable Timer 0 Interrupt
+#define IE_EX0        0x01  		// Enable External 0 Interrupt 	
+
+// EIE1
+#define EIE1_ET3      0x80  		// Enable Timer 3 Interrupt.
+#define EIE1_ECP1     0x40  		// Enable Comparator1 (CP1) Interrupt
+#define EIE1_ECP0	  0x20  		// Enable Comparator0 (CP0) Interrupt
+#define EIE1_EPCA0	  0x10  		// Enable Programmable Counter Array (PCA0) Interrupt
+#define EIE1_EADC0    0x08   		// Enable ADC0 Conversion Complete Interrupt
+#define EIE1_EWADC0   0x04  		// Enable Window Comparison ADC0 Interrupt. 
+#define EIE1_EUSB0    0x02  		// Enable USB0 Interrupt
+#define EIE1_ESMB0    0x01  		// Enable SMBus (SMB0) Interrupt	
+
+// EIE2
+#define EIE2_EVBUS      0x01  		// Enable Enable VBUS Level Interrupt	
+
+//-----------------------------------------------------------------------------
 // Interrupt Priorities
 //-----------------------------------------------------------------------------
 
@@ -362,6 +397,15 @@ SBIT (SPIEN, SFR_SPI0CN, 0);           // SPI0 SPI enable
 #define RSTSRC_PORSF             0x02 	// Power-On / VDD Monitor Reset Flag : Read 1=Last reset was a Power reset // Write 1=Power resets enabled
 #define RSTSRC_PINRSF            0x01 	// HW Pin Reset Flag : Readonly 1=Source of last reset was /RST pin
 
+// TMR2CN
+#define TMR2CN_TF2H              0x80          // Timer2 high byte overflow flag
+#define TMR2CN_TF2L              0x40          // Timer2 low byte overflow flag
+#define TMR2CN_TF2LEN            0x20          // Timer2 low byte interrupt enable
+#define TMR2CN_T2SOF             0x10          // Timer2 start-of-frame capture enable
+#define TMR2CN_T2SPLIT           0x08          // Timer2 split mode enable
+#define TMR2CN_TR2               0x04          // Timer2 on/off control
+                                      		    // Bit1 UNUSED
+#define TMR2CN_T2XCLK            0x01          // Timer2 external clock select
 //-----------------------------------------------------------------------------
 // Usb Values
 //-----------------------------------------------------------------------------
