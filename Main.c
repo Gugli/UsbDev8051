@@ -30,18 +30,17 @@ typedef enum
 typedef enum 
 {
 	EKeboardModifiersMask_None				= 0x00,
+
 	EKeboardModifiersMask_LeftCtrl			= 0x01,
-	EKeboardModifiersMask_RightCtrl			= 0x02,
-	EKeboardModifiersMask_Shift				= 0x04,
+	EKeboardModifiersMask_LeftShift			= 0x02,
+	EKeboardModifiersMask_LeftAlt			= 0x04,
+	EKeboardModifiersMask_LeftGUI 			= 0x08,
+
+	EKeboardModifiersMask_RightCtrl			= 0x10,
+	EKeboardModifiersMask_RightShift 		= 0x20,
+	EKeboardModifiersMask_RightAlt 			= 0x40,
+	EKeboardModifiersMask_RightGUI 			= 0x80,
 } EKeboardModifiersMask;
-
-typedef enum 
-{
-	EConfigActions_MouseButtons			= 0x01,
-	EConfigActions_KeyboardModifier		= 0x02,
-	EConfigActions_Shift				= 0x04,
-} EConfigActions;
-
 
 typedef struct 
 {
@@ -73,9 +72,9 @@ SEG_CODE SConfig Config =
 		{{EMouseButtonsMask_None, EKeboardModifiersMask_None, 0x14}},
 	},
 	{
-		{{EMouseButtonsMask_None, EKeboardModifiersMask_None, 0x12}, 0x7F},
-		{{EMouseButtonsMask_None, EKeboardModifiersMask_None, 0x13}, 0x7F},
-		{{EMouseButtonsMask_None, EKeboardModifiersMask_None, 0x14}, 0x7F},
+		{{EMouseButtonsMask_None, EKeboardModifiersMask_LeftShift, 0x12}, 0x7F},
+		{{EMouseButtonsMask_None, EKeboardModifiersMask_LeftShift, 0x13}, 0x7F},
+		{{EMouseButtonsMask_None, EKeboardModifiersMask_LeftShift, 0x14}, 0x7F},
 	}
 }
 ;
@@ -877,6 +876,30 @@ INTERRUPT(Timer2_ISR, INTERRUPT_TIMER2)
 	TMR2CN &= (~TMR2CN_TF2H);
 }
 
+INTERRUPT(Adc_ConvComplete_ISR, INTERRUPT_ADC0_EOC)
+{
+	U8 Value;
+	Value = ADC0H; // Most significant bytes
+    ADC0CN = 0x80 | 0x40 | 0x02;                         // acknowledge interrupt
+
+	// Loop among pins at every conversion
+	if(AMX0P == 0x01) 
+	{
+		MC.Output_ADCs[0] = (Value > Config.ADCs[0].Threshold) ? True: False;
+		AMX0P = 0x02;
+	}
+	else if(AMX0P == 0x02) 
+	{
+		MC.Output_ADCs[1] = (Value > Config.ADCs[1].Threshold) ? True: False;
+		AMX0P = 0x03;
+	}
+	else 
+	{
+		MC.Output_ADCs[2] = (Value > Config.ADCs[2].Threshold) ? True: False;
+		AMX0P = 0x01;
+	}
+}
+
 /////////////////////////////////
 /////////////////////////////////
 // MAIN
@@ -901,7 +924,7 @@ void main (void)
 	// Disable interrupts during setup
 	IE = 0;
 
-	// Setup clock
+	// clock Setup
 	#if MIsEnabled(MUsb_HighSpeed) 
 		OSCICN = (OSCICN_IOSCEN | OSCICN_DIVBY_1);		  // Configure internal oscillator
 		for(I = 0;I < 500;I++);							  // Delay for Oscillator to begin
@@ -920,7 +943,7 @@ void main (void)
 		CLKSEL	= (CLKSEL_CLKSL_INTERNAL | CLKSEL_USBCLK_INTERNALDIV2);  
 	#endif
 	
-	// Setup USB
+	// USB Setup
 	USB_WriteRegister(USB0ADR_POWER, USB0DAT_POWER_USBRST); // Request Reset
 	USB_WriteRegister(USB0ADR_IN1IE, USB0DAT_IN1IE_EP0 | USB0DAT_IN1IE_EP1 | USB0DAT_IN1IE_EP2); // Enable Endpoint 0-2 in interrupts
 	USB_WriteRegister(USB0ADR_CMIE, USB0DAT_CMIE_RSTINTE | USB0DAT_CMIE_RSUINTE | USB0DAT_CMIE_SUSINTE);  // Enable Reset, Resume, and Suspend interrupts
@@ -939,13 +962,27 @@ void main (void)
 	TMR2    = 0xFFFF;                   // Set to reload immediately
     TMR2CN  |= TMR2CN_TR2;              // Start Timer2
 
+    // ADC setup
+    REF0CN = 0x0E;                      // Enable voltage reference VREF
+    AMX0P = 0x01;                       // switch to P1.1
+    AMX0N = 0x1F;                       // Single ended mode(negative input=gnd)
+    ADC0CF = (0x1F << 3) | 0x04;        // SAR Period 0x1F ( SarClk = 32*SysClk ) (32 = 0x1F + 1), Left adjusted output
+
+    ADC0CN = 0x80 | 0x40 | 0x02;        // Continuous converion on timer 2 overflow
 
 
 
-    //P0MDIN   = 0xFF;                    // Port 1 pin 7 set as analog input
-    //P0MDOUT |= 0x0F;                    // Port 0 pins 0-3 set high impedence
+    // Port 
+	// 1.0 => Unused
+	// 1.1 / 1.2 / 1.3 => ADC
+	// 1.4 / 1.5 / 1.6 => Digital input
+	// 1.7 => Unused
 
-    P1MDIN   = 0xF0;                    // Port 1 pin 1-4 set as analog input
+	// Port 0 is not used
+	// Port 2 is used for "on" signal (LEDs blinking on dev. board) 
+
+
+    P1MDIN   = 0xF1;                    // Port 1 pin 1-4 set as analog input
     P1MDOUT  = 0x00;                    // Port 1 no pins set high impedence
     P1SKIP   = 0x00;                    // Port 1 no pins skipped by crossbar
 
@@ -962,12 +999,12 @@ void main (void)
 	FrameCyclicCounterLow = 0;
 	FrameCyclicCounterHigh = 0;
 	
-	EIE1 = EIE1_EUSB0; // Enable USB0 Interrupts
 	USB_WriteRegister(USB0ADR_POWER, USB0DAT_POWER_SUSEN); // Activate transciever and enable suspend detection
 	
 
 	#define IE_EnabledValue (IE_EA | IE_ET2) // Global + Timer2
 	IE = IE_EnabledValue; // enable interrupts 
+	EIE1 = EIE1_EUSB0 | EIE1_EADC0; // Enable USB0 Interrupts and ADC End-of-conversion
 
 	// Put garbage values to ensure at least one packet is sent after init
 	PreviousOutput_Mouse_Buttons = 0xFF;
@@ -983,6 +1020,10 @@ void main (void)
 	{
 		// blink leds, to show when running
 		P2 = (P2 & 0xF3) | ( (FrameCyclicCounterHigh % 0x0004 < 0x0002) ? 0x08 : 0x04 );
+
+		// P2 = ((MC.Output_ADCs[0]) ? 0x08 : 0x00) | ((MC.Output_ADCs[1]) ? 0x04 : 0x00);
+
+
 		FrameCyclicCounterLow++;
 		if(!FrameCyclicCounterLow) FrameCyclicCounterHigh++;
 
