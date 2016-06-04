@@ -67,14 +67,14 @@ typedef struct {
 SEG_CODE SConfig Config =
 {
 	{
-		{{EMouseButtonsMask_None, EKeboardModifiersMask_None, 0x12}},
-		{{EMouseButtonsMask_None, EKeboardModifiersMask_None, 0x13}},
-		{{EMouseButtonsMask_None, EKeboardModifiersMask_None, 0x14}},
+		{{EMouseButtonsMask_None, EKeboardModifiersMask_None, 0x00}},
+		{{EMouseButtonsMask_None, EKeboardModifiersMask_None, 0x00}},
+		{{EMouseButtonsMask_None, EKeboardModifiersMask_None, 0x00}},
 	},
 	{
-		{{EMouseButtonsMask_None, EKeboardModifiersMask_LeftShift, 0x12}, 0x7F},
-		{{EMouseButtonsMask_None, EKeboardModifiersMask_LeftShift, 0x13}, 0x7F},
-		{{EMouseButtonsMask_None, EKeboardModifiersMask_LeftShift, 0x14}, 0x7F},
+		{{EMouseButtonsMask_None, EKeboardModifiersMask_LeftCtrl,  0x00}, 0x7F},
+		{{EMouseButtonsMask_None, EKeboardModifiersMask_LeftAlt,   0x00}, 0x7F},
+		{{EMouseButtonsMask_None, EKeboardModifiersMask_LeftShift, 0x00}, 0x7F},
 	}
 }
 ;
@@ -885,17 +885,17 @@ INTERRUPT(Adc_ConvComplete_ISR, INTERRUPT_ADC0_EOC)
 	// Loop among pins at every conversion
 	if(AMX0P == 0x01) 
 	{
-		MC.Output_ADCs[0] = (Value > Config.ADCs[0].Threshold) ? True: False;
+		MC.Output_ADCs[0] = (Value > Config.ADCs[0].Threshold) ? False: True;
 		AMX0P = 0x02;
 	}
 	else if(AMX0P == 0x02) 
 	{
-		MC.Output_ADCs[1] = (Value > Config.ADCs[1].Threshold) ? True: False;
+		MC.Output_ADCs[1] = (Value > Config.ADCs[1].Threshold) ? False: True;
 		AMX0P = 0x03;
 	}
 	else 
 	{
-		MC.Output_ADCs[2] = (Value > Config.ADCs[2].Threshold) ? True: False;
+		MC.Output_ADCs[2] = (Value > Config.ADCs[2].Threshold) ? False: True;
 		AMX0P = 0x01;
 	}
 }
